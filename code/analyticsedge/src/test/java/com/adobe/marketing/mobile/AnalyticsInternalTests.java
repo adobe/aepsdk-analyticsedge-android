@@ -19,37 +19,29 @@ import android.content.Context;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
-import org.powermock.reflect.Whitebox;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({ExtensionApi.class, ExtensionUnexpectedError.class, AnalyticsEdgeState.class, PlatformServices.class, LocalStorageService.class, Edge.class, ExperienceEvent.class, App.class, Context.class})
-public class AnalyticsEdgeInternalTests {
+@PrepareForTest({ExtensionApi.class, ExtensionUnexpectedError.class, AnalyticsState.class, PlatformServices.class, LocalStorageService.class, Edge.class, ExperienceEvent.class, App.class, Context.class})
+public class AnalyticsInternalTests {
 
     private int EXECUTOR_TIMEOUT = 5;
-    private AnalyticsEdgeInternal analyticsEdgeInternal;
+    private AnalyticsInternal analyticsInternal;
 
     // Mocks
     @Mock
@@ -57,7 +49,7 @@ public class AnalyticsEdgeInternalTests {
     @Mock
     ExtensionUnexpectedError mockExtensionUnexpectedError;
     @Mock
-    AnalyticsEdgeState analyticsEdgeState;
+    AnalyticsState analyticsState;
     @Mock
     PlatformServices mockPlatformServices;
     @Mock
@@ -79,8 +71,8 @@ public class AnalyticsEdgeInternalTests {
         PowerMockito.mockStatic(ExperienceEvent.class);
         PowerMockito.mockStatic(App.class);
         Mockito.when(App.getAppContext()).thenReturn(context);
-        analyticsEdgeInternal = new AnalyticsEdgeInternal(mockExtensionApi);
-        analyticsEdgeState = new AnalyticsEdgeState();
+        analyticsInternal = new AnalyticsInternal(mockExtensionApi);
+        analyticsState = new AnalyticsState();
     }
 
     // ========================================================================================
@@ -101,8 +93,8 @@ public class AnalyticsEdgeInternalTests {
     @Test
     public void test_getName() {
         // test
-        String moduleName = analyticsEdgeInternal.getName();
-        assertEquals("getName should return the correct module name", AnalyticsEdgeConstants.EXTENSION_NAME, moduleName);
+        String moduleName = analyticsInternal.getName();
+        assertEquals("getName should return the correct module name", AnalyticsConstants.EXTENSION_NAME, moduleName);
     }
 
     // ========================================================================================
@@ -111,8 +103,8 @@ public class AnalyticsEdgeInternalTests {
     @Test
     public void test_getVersion() {
         // test
-        String moduleVersion = analyticsEdgeInternal.getVersion();
-        assertEquals("getVesion should return the correct module version", AnalyticsEdgeConstants.EXTENSION_VERSION,
+        String moduleVersion = analyticsInternal.getVersion();
+        assertEquals("getVesion should return the correct module version", AnalyticsConstants.EXTENSION_VERSION,
                 moduleVersion);
     }
 
@@ -122,7 +114,7 @@ public class AnalyticsEdgeInternalTests {
     @Test
     public void test_onUnexpectedError() {
         // test
-        analyticsEdgeInternal.onUnexpectedError(mockExtensionUnexpectedError);
+        analyticsInternal.onUnexpectedError(mockExtensionUnexpectedError);
         verify(mockExtensionApi, times(1)).clearSharedEventStates(null);
     }
 
@@ -133,7 +125,7 @@ public class AnalyticsEdgeInternalTests {
     @Test
     public void test_onUnregistered() {
         // test
-        analyticsEdgeInternal.onUnregistered();
+        analyticsInternal.onUnregistered();
         verify(mockExtensionApi, times(1)).clearSharedEventStates(null);
     }
 
@@ -143,21 +135,21 @@ public class AnalyticsEdgeInternalTests {
     @Test
     public void test_QueueEvent() {
         // test 1
-        assertNotNull("EventQueue instance is should never be null", analyticsEdgeInternal.getEventQueue());
+        assertNotNull("EventQueue instance is should never be null", analyticsInternal.getEventQueue());
 
         // test 2
         Event sampleEvent = new Event.Builder("event 1", "eventType", "eventSource").build();
-        analyticsEdgeInternal.queueEvent(sampleEvent);
-        assertEquals("The size of the eventQueue should be correct", 1, analyticsEdgeInternal.getEventQueue().size());
+        analyticsInternal.queueEvent(sampleEvent);
+        assertEquals("The size of the eventQueue should be correct", 1, analyticsInternal.getEventQueue().size());
 
         // test 3
-        analyticsEdgeInternal.queueEvent(null);
-        assertEquals("The size of the eventQueue should be correct", 1, analyticsEdgeInternal.getEventQueue().size());
+        analyticsInternal.queueEvent(null);
+        assertEquals("The size of the eventQueue should be correct", 1, analyticsInternal.getEventQueue().size());
 
         // test 4
         Event anotherEvent = new Event.Builder("event 2", "eventType", "eventSource").build();
-        analyticsEdgeInternal.queueEvent(anotherEvent);
-        assertEquals("The size of the eventQueue should be correct", 2, analyticsEdgeInternal.getEventQueue().size());
+        analyticsInternal.queueEvent(anotherEvent);
+        assertEquals("The size of the eventQueue should be correct", 2, analyticsInternal.getEventQueue().size());
     }
 
     // ========================================================================================
@@ -175,10 +167,10 @@ public class AnalyticsEdgeInternalTests {
         Event mockEvent = new Event.Builder("event 2", "eventType", "eventSource").build();
 
         // test
-        analyticsEdgeInternal.processEvents();
+        analyticsInternal.processEvents();
 
         // verify
-        verify(mockExtensionApi, times(0)).getSharedEventState(AnalyticsEdgeConstants.EventDataKeys.Configuration.EXTENSION_NAME, mockEvent, mockCallback);
+        verify(mockExtensionApi, times(0)).getSharedEventState(AnalyticsConstants.EventDataKeys.Configuration.EXTENSION_NAME, mockEvent, mockCallback);
     }
 
     // ========================================================================================
@@ -187,10 +179,10 @@ public class AnalyticsEdgeInternalTests {
     @Test
     public void test_getExecutor_NeverReturnsNull() {
         // test
-        ExecutorService executorService = analyticsEdgeInternal.getExecutor();
+        ExecutorService executorService = analyticsInternal.getExecutor();
         assertNotNull("The executor should not return null", executorService);
 
         // verify
-        assertEquals("Gets the same executor instance on the next get", executorService, analyticsEdgeInternal.getExecutor());
+        assertEquals("Gets the same executor instance on the next get", executorService, analyticsInternal.getExecutor());
     }
 }

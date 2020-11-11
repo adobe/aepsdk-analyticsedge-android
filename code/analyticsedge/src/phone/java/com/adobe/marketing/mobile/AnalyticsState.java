@@ -16,21 +16,21 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * The {@link AnalyticsEdgeState} class will encapsulate the analytics config properties used across the analytics handlers,
+ * The {@link AnalyticsState} class will encapsulate the analytics config properties used across the analytics handlers,
  * which are retrieved from Configuration SharedState.
  */
-final class AnalyticsEdgeState {
-    private static final String LOG_TAG = AnalyticsEdgeState.class.getSimpleName();
+final class AnalyticsState {
+    private static final String LOG_TAG = AnalyticsState.class.getSimpleName();
     // ----------- Configuration properties -----------
-    private boolean analyticsForwardingEnabled = AnalyticsEdgeConstants.Default.DEFAULT_FORWARDING_ENABLED;
-    private boolean offlineEnabled = AnalyticsEdgeConstants.Default.DEFAULT_OFFLINE_ENABLED;
-    private int batchLimit = AnalyticsEdgeConstants.Default.DEFAULT_BATCH_LIMIT;
-    private MobilePrivacyStatus privacyStatus = AnalyticsEdgeConstants.Default.DEFAULT_PRIVACY_STATUS;
-    private int referrerTimeout = AnalyticsEdgeConstants.Default.DEFAULT_REFERRER_TIMEOUT;
-    private boolean assuranceSessionActive = AnalyticsEdgeConstants.Default.DEFAULT_ASSURANCE_SESSION_ENABLED;
+    private boolean analyticsForwardingEnabled = AnalyticsConstants.Default.DEFAULT_FORWARDING_ENABLED;
+    private boolean offlineEnabled = AnalyticsConstants.Default.DEFAULT_OFFLINE_ENABLED;
+    private int batchLimit = AnalyticsConstants.Default.DEFAULT_BATCH_LIMIT;
+    private MobilePrivacyStatus privacyStatus = AnalyticsConstants.Default.DEFAULT_PRIVACY_STATUS;
+    private int referrerTimeout = AnalyticsConstants.Default.DEFAULT_REFERRER_TIMEOUT;
+    private boolean assuranceSessionActive = AnalyticsConstants.Default.DEFAULT_ASSURANCE_SESSION_ENABLED;
 
     private boolean backdateSessionInfoEnabled =
-            AnalyticsEdgeConstants.Default.DEFAULT_BACKDATE_SESSION_INFO_ENABLED;
+            AnalyticsConstants.Default.DEFAULT_BACKDATE_SESSION_INFO_ENABLED;
     private String marketingCloudOrganizationID;
     private String rsids;
     private String server;
@@ -45,11 +45,11 @@ final class AnalyticsEdgeState {
     // ----------- Lifecycle properties ----------
     private String applicationID;
     private Map<String, String> defaultData = new HashMap<String, String>();
-    private int sessionTimeout = AnalyticsEdgeConstants.Default.DEFAULT_LIFECYCLE_SESSION_TIMEOUT;
+    private int sessionTimeout = AnalyticsConstants.Default.DEFAULT_LIFECYCLE_SESSION_TIMEOUT;
     private long lifecycleMaxSessionLength = 0;
     private long lifecycleSessionStartTimestamp = 0;
 
-    AnalyticsEdgeState() { }
+    AnalyticsState() { }
 
     /**
      * Extracts the configuration data from the provided EventData object
@@ -62,36 +62,36 @@ final class AnalyticsEdgeState {
             return;
         }
 
-        server = configuration.optString(AnalyticsEdgeConstants.EventDataKeys.Configuration.ANALYTICS_CONFIG_SERVER, null);
-        rsids = configuration.optString(AnalyticsEdgeConstants.EventDataKeys.Configuration.ANALYTICS_CONFIG_REPORT_SUITES, null);
+        server = configuration.optString(AnalyticsConstants.EventDataKeys.Configuration.ANALYTICS_CONFIG_SERVER, null);
+        rsids = configuration.optString(AnalyticsConstants.EventDataKeys.Configuration.ANALYTICS_CONFIG_REPORT_SUITES, null);
         analyticsForwardingEnabled = configuration.optBoolean(
-                AnalyticsEdgeConstants.EventDataKeys.Configuration.ANALYTICS_CONFIG_AAMFORWARDING,
-                AnalyticsEdgeConstants.Default.DEFAULT_FORWARDING_ENABLED);
+                AnalyticsConstants.EventDataKeys.Configuration.ANALYTICS_CONFIG_AAMFORWARDING,
+                AnalyticsConstants.Default.DEFAULT_FORWARDING_ENABLED);
         offlineEnabled = configuration.optBoolean(
-                AnalyticsEdgeConstants.EventDataKeys.Configuration.ANALYTICS_CONFIG_OFFLINE_TRACKING,
-                AnalyticsEdgeConstants.Default.DEFAULT_OFFLINE_ENABLED);
-        batchLimit = configuration.optInteger(AnalyticsEdgeConstants.EventDataKeys.Configuration.ANALYTICS_CONFIG_BATCH_LIMIT,
-                AnalyticsEdgeConstants.Default.DEFAULT_BATCH_LIMIT);
+                AnalyticsConstants.EventDataKeys.Configuration.ANALYTICS_CONFIG_OFFLINE_TRACKING,
+                AnalyticsConstants.Default.DEFAULT_OFFLINE_ENABLED);
+        batchLimit = configuration.optInteger(AnalyticsConstants.EventDataKeys.Configuration.ANALYTICS_CONFIG_BATCH_LIMIT,
+                AnalyticsConstants.Default.DEFAULT_BATCH_LIMIT);
         int referrerTimeoutFromConfig = configuration.optInteger(
-                AnalyticsEdgeConstants.EventDataKeys.Configuration.ANALYTICS_CONFIG_LAUNCH_HIT_DELAY,
-                AnalyticsEdgeConstants.Default.DEFAULT_REFERRER_TIMEOUT);
+                AnalyticsConstants.EventDataKeys.Configuration.ANALYTICS_CONFIG_LAUNCH_HIT_DELAY,
+                AnalyticsConstants.Default.DEFAULT_REFERRER_TIMEOUT);
 
         if (referrerTimeoutFromConfig >= 0) {
             referrerTimeout = referrerTimeoutFromConfig;
         }
 
         marketingCloudOrganizationID = configuration.optString(
-                AnalyticsEdgeConstants.EventDataKeys.Configuration.CONFIG_EXPERIENCE_CLOUD_ORGID_KEY,
+                AnalyticsConstants.EventDataKeys.Configuration.CONFIG_EXPERIENCE_CLOUD_ORGID_KEY,
                 null);
         backdateSessionInfoEnabled = configuration.optBoolean(
-                AnalyticsEdgeConstants.EventDataKeys.Configuration.ANALYTICS_CONFIG_BACKDATE_PREVIOUS_SESSION,
-                AnalyticsEdgeConstants.Default.DEFAULT_BACKDATE_SESSION_INFO_ENABLED);
+                AnalyticsConstants.EventDataKeys.Configuration.ANALYTICS_CONFIG_BACKDATE_PREVIOUS_SESSION,
+                AnalyticsConstants.Default.DEFAULT_BACKDATE_SESSION_INFO_ENABLED);
         privacyStatus = MobilePrivacyStatus.fromString(configuration.optString(
-                AnalyticsEdgeConstants.EventDataKeys.Configuration.GLOBAL_CONFIG_PRIVACY,
-                AnalyticsEdgeConstants.Default.DEFAULT_PRIVACY_STATUS.getValue()));
+                AnalyticsConstants.EventDataKeys.Configuration.GLOBAL_CONFIG_PRIVACY,
+                AnalyticsConstants.Default.DEFAULT_PRIVACY_STATUS.getValue()));
 
-        sessionTimeout = configuration.optInteger(AnalyticsEdgeConstants.EventDataKeys.Configuration.LIFECYCLE_SESSION_TIMEOUT,
-                AnalyticsEdgeConstants.Default.DEFAULT_LIFECYCLE_SESSION_TIMEOUT);
+        sessionTimeout = configuration.optInteger(AnalyticsConstants.EventDataKeys.Configuration.LIFECYCLE_SESSION_TIMEOUT,
+                AnalyticsConstants.Default.DEFAULT_LIFECYCLE_SESSION_TIMEOUT);
     }
 
     /**
@@ -105,16 +105,16 @@ final class AnalyticsEdgeState {
             return;
         }
 
-        marketingCloudID = identityInfo.optString(AnalyticsEdgeConstants.EventDataKeys.Identity.VISITOR_ID_MID, null);
-        blob = identityInfo.optString(AnalyticsEdgeConstants.EventDataKeys.Identity.VISITOR_ID_BLOB, null);
-        locationHint = identityInfo.optString(AnalyticsEdgeConstants.EventDataKeys.Identity.VISITOR_ID_LOCATION_HINT, null);
-        advertisingIdentifier = identityInfo.optString(AnalyticsEdgeConstants.EventDataKeys.Identity.ADVERTISING_IDENTIFIER, null);
+        marketingCloudID = identityInfo.optString(AnalyticsConstants.EventDataKeys.Identity.VISITOR_ID_MID, null);
+        blob = identityInfo.optString(AnalyticsConstants.EventDataKeys.Identity.VISITOR_ID_BLOB, null);
+        locationHint = identityInfo.optString(AnalyticsConstants.EventDataKeys.Identity.VISITOR_ID_LOCATION_HINT, null);
+        advertisingIdentifier = identityInfo.optString(AnalyticsConstants.EventDataKeys.Identity.ADVERTISING_IDENTIFIER, null);
 
         //TODO: update
-//        if (identityInfo.containsKey(AnalyticsEdgeConstants.EventDataKeys.Identity.VISITOR_IDS_LIST)) {
+//        if (identityInfo.containsKey(AnalyticsConstants.EventDataKeys.Identity.VISITOR_IDS_LIST)) {
 //            try {
 //                final List<VisitorID> visitorIdsList = identityInfo.getTypedList(
-//                        AnalyticsEdgeConstants.EventDataKeys.Identity.VISITOR_IDS_LIST,
+//                        AnalyticsConstants.EventDataKeys.Identity.VISITOR_IDS_LIST,
 //                        VisitorID.VARIANT_SERIALIZER);
 //                serializedVisitorIDsList = AnalyticsRequestSerializer.generateAnalyticsCustomerIdString(visitorIdsList);
 //            } catch (VariantException ex) {
@@ -136,22 +136,22 @@ final class AnalyticsEdgeState {
         }
 
         Map<String, String> placesContextData = placesInfo.optStringMap(
-                AnalyticsEdgeConstants.EventDataKeys.Places.CURRENT_POI, null);
+                AnalyticsConstants.EventDataKeys.Places.CURRENT_POI, null);
 
         if (placesContextData == null) {
             return;
         }
 
-        final String regionId = placesContextData.get(AnalyticsEdgeConstants.EventDataKeys.Places.REGION_ID);
+        final String regionId = placesContextData.get(AnalyticsConstants.EventDataKeys.Places.REGION_ID);
 
         if (!StringUtils.isNullOrEmpty(regionId)) {
-            defaultData.put(AnalyticsEdgeConstants.ContextDataKeys.REGION_ID, regionId);
+            defaultData.put(AnalyticsConstants.ContextDataKeys.REGION_ID, regionId);
         }
 
-        final String regionName = placesContextData.get(AnalyticsEdgeConstants.EventDataKeys.Places.REGION_NAME);
+        final String regionName = placesContextData.get(AnalyticsConstants.EventDataKeys.Places.REGION_NAME);
 
         if (!StringUtils.isNullOrEmpty(regionName)) {
-            defaultData.put(AnalyticsEdgeConstants.ContextDataKeys.REGION_NAME, regionName);
+            defaultData.put(AnalyticsConstants.ContextDataKeys.REGION_NAME, regionName);
         }
 
     }
@@ -169,50 +169,50 @@ final class AnalyticsEdgeState {
         }
 
         lifecycleSessionStartTimestamp = lifecycleData.optLong(
-                AnalyticsEdgeConstants.EventDataKeys.Lifecycle.SESSION_START_TIMESTAMP, 0L);
-        lifecycleMaxSessionLength = lifecycleData.optLong(AnalyticsEdgeConstants.EventDataKeys.Lifecycle.MAX_SESSION_LENGTH, 0L);
+                AnalyticsConstants.EventDataKeys.Lifecycle.SESSION_START_TIMESTAMP, 0L);
+        lifecycleMaxSessionLength = lifecycleData.optLong(AnalyticsConstants.EventDataKeys.Lifecycle.MAX_SESSION_LENGTH, 0L);
 
         final Map<String, String> lifecycleContextData = lifecycleData.optStringMap(
-                AnalyticsEdgeConstants.EventDataKeys.Lifecycle.LIFECYCLE_CONTEXT_DATA, null);
+                AnalyticsConstants.EventDataKeys.Lifecycle.LIFECYCLE_CONTEXT_DATA, null);
 
         if (lifecycleContextData == null || lifecycleContextData.isEmpty()) {
             return;
         }
 
-        final String osVersion = lifecycleContextData.get(AnalyticsEdgeConstants.EventDataKeys.Lifecycle.OPERATING_SYSTEM);
+        final String osVersion = lifecycleContextData.get(AnalyticsConstants.EventDataKeys.Lifecycle.OPERATING_SYSTEM);
 
         if (!StringUtils.isNullOrEmpty(osVersion)) {
-            defaultData.put(AnalyticsEdgeConstants.ContextDataKeys.OPERATING_SYSTEM, osVersion);
+            defaultData.put(AnalyticsConstants.ContextDataKeys.OPERATING_SYSTEM, osVersion);
         }
 
-        final String deviceName = lifecycleContextData.get(AnalyticsEdgeConstants.EventDataKeys.Lifecycle.DEVICE_NAME);
+        final String deviceName = lifecycleContextData.get(AnalyticsConstants.EventDataKeys.Lifecycle.DEVICE_NAME);
 
         if (!StringUtils.isNullOrEmpty(deviceName)) {
-            defaultData.put(AnalyticsEdgeConstants.ContextDataKeys.DEVICE_NAME, deviceName);
+            defaultData.put(AnalyticsConstants.ContextDataKeys.DEVICE_NAME, deviceName);
         }
 
-        final String deviceResolution = lifecycleContextData.get(AnalyticsEdgeConstants.EventDataKeys.Lifecycle.DEVICE_RESOLUTION);
+        final String deviceResolution = lifecycleContextData.get(AnalyticsConstants.EventDataKeys.Lifecycle.DEVICE_RESOLUTION);
 
         if (!StringUtils.isNullOrEmpty(deviceResolution)) {
-            defaultData.put(AnalyticsEdgeConstants.ContextDataKeys.DEVICE_RESOLUTION, deviceResolution);
+            defaultData.put(AnalyticsConstants.ContextDataKeys.DEVICE_RESOLUTION, deviceResolution);
         }
 
-        final String carrier = lifecycleContextData.get(AnalyticsEdgeConstants.EventDataKeys.Lifecycle.CARRIER_NAME);
+        final String carrier = lifecycleContextData.get(AnalyticsConstants.EventDataKeys.Lifecycle.CARRIER_NAME);
 
         if (!StringUtils.isNullOrEmpty(carrier)) {
-            defaultData.put(AnalyticsEdgeConstants.ContextDataKeys.CARRIER_NAME, carrier);
+            defaultData.put(AnalyticsConstants.ContextDataKeys.CARRIER_NAME, carrier);
         }
 
-        final String runMode = lifecycleContextData.get(AnalyticsEdgeConstants.EventDataKeys.Lifecycle.RUN_MODE);
+        final String runMode = lifecycleContextData.get(AnalyticsConstants.EventDataKeys.Lifecycle.RUN_MODE);
 
         if (!StringUtils.isNullOrEmpty(runMode)) {
-            defaultData.put(AnalyticsEdgeConstants.ContextDataKeys.RUN_MODE, runMode);
+            defaultData.put(AnalyticsConstants.ContextDataKeys.RUN_MODE, runMode);
         }
 
-        final String appId = lifecycleContextData.get(AnalyticsEdgeConstants.EventDataKeys.Lifecycle.APP_ID);
+        final String appId = lifecycleContextData.get(AnalyticsConstants.EventDataKeys.Lifecycle.APP_ID);
 
         if (!StringUtils.isNullOrEmpty(appId)) {
-            defaultData.put(AnalyticsEdgeConstants.ContextDataKeys.APPLICATION_IDENTIFIER, appId);
+            defaultData.put(AnalyticsConstants.ContextDataKeys.APPLICATION_IDENTIFIER, appId);
             this.applicationID = appId;
         }
     }
@@ -229,7 +229,7 @@ final class AnalyticsEdgeState {
         }
 
         String assuranceSessionId = assuranceInfo.optString(
-                AnalyticsEdgeConstants.EventDataKeys.Assurance.SESSION_ID,
+                AnalyticsConstants.EventDataKeys.Assurance.SESSION_ID,
                 null);
 
         // assurance sessionId non empty non null means session is active
@@ -248,14 +248,14 @@ final class AnalyticsEdgeState {
             return analyticsIdVisitorParameters;
         }
 
-        analyticsIdVisitorParameters.put(AnalyticsEdgeConstants.ANALYTICS_PARAMETER_KEY_MID, this.marketingCloudID);
+        analyticsIdVisitorParameters.put(AnalyticsConstants.ANALYTICS_PARAMETER_KEY_MID, this.marketingCloudID);
 
         if (!StringUtils.isNullOrEmpty(this.blob)) {
-            analyticsIdVisitorParameters.put(AnalyticsEdgeConstants.ANALYTICS_PARAMETER_KEY_BLOB, this.blob);
+            analyticsIdVisitorParameters.put(AnalyticsConstants.ANALYTICS_PARAMETER_KEY_BLOB, this.blob);
         }
 
         if (!StringUtils.isNullOrEmpty(this.locationHint)) {
-            analyticsIdVisitorParameters.put(AnalyticsEdgeConstants.ANALYTICS_PARAMETER_KEY_LOCATION_HINT, this.locationHint);
+            analyticsIdVisitorParameters.put(AnalyticsConstants.ANALYTICS_PARAMETER_KEY_LOCATION_HINT, this.locationHint);
         }
 
         return analyticsIdVisitorParameters;

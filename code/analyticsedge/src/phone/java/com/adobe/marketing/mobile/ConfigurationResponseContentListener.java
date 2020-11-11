@@ -15,7 +15,7 @@ package com.adobe.marketing.mobile;
 /**
  * Listens for {@link EventType#CONFIGURATION}, {@link EventSource#RESPONSE_CONTENT} events.
  * Monitor request content events consist of following events
- * @see AnalyticsEdgeInternal
+ * @see AnalyticsInternal
  */
 public class ConfigurationResponseContentListener extends ExtensionListener {
 
@@ -34,22 +34,22 @@ public class ConfigurationResponseContentListener extends ExtensionListener {
      * Method that gets called when {@link EventType#CONFIGURATION},
      * {@link EventSource#RESPONSE_CONTENT} event is dispatched through eventHub.
      * <p>
-     * {@link AnalyticsEdgeInternal} queues event and attempts to process them immediately.
+     * {@link AnalyticsInternal} queues event and attempts to process them immediately.
      *
      * @param event configuration response event {@link Event} to be processed
-     * @see AnalyticsEdgeInternal#processEvents()
+     * @see AnalyticsInternal#processEvents()
      */
     @Override
     public void hear(final Event event) {
         if (event == null || event.getEventData() == null) {
-            Log.debug(AnalyticsEdgeConstants.LOG_TAG, "Event or Event data is null.");
+            Log.debug(AnalyticsConstants.LOG_TAG, "Event or Event data is null.");
             return;
         }
 
-        final AnalyticsEdgeInternal parentExtension = (AnalyticsEdgeInternal) super.getParentExtension();
+        final AnalyticsInternal parentExtension = (AnalyticsInternal) super.getParentExtension();
 
         if (parentExtension == null) {
-            Log.warning(AnalyticsEdgeConstants.LOG_TAG,
+            Log.warning(AnalyticsConstants.LOG_TAG,
                     "The parent extension, associated with the ConfigurationResponseContentListener is null, ignoring the configuration response event.");
             return;
         }

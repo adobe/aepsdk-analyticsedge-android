@@ -14,13 +14,13 @@ package com.adobe.marketing.mobile;
 // TODO: placeholder, needs to be cleaned
 import java.util.HashMap;
 
-final class AnalyticsEdgeConstants {
+final class AnalyticsConstants {
 
-    static final String LOG_TAG = "AnalyticsEdge";
+    static final String LOG_TAG = "Analytics";
     static final String EXTENSION_VERSION = "1.0.0-alpha";
-    static final String EXTENSION_NAME = "com.adobe.analyticsedge";
+    static final String EXTENSION_NAME = "com.adobe.analytics";
 
-    private AnalyticsEdgeConstants() {}
+    private AnalyticsConstants() {}
 
     static final class Default {
         static final MobilePrivacyStatus DEFAULT_PRIVACY_STATUS     = MobilePrivacyStatus.OPT_IN;
@@ -41,7 +41,7 @@ final class AnalyticsEdgeConstants {
     // ================================================================================
     // String value constants - Data store names
     // ================================================================================
-    static final String ANALYTICS_DATA_STORAGE = "AnalyticsEdgeDataStorage";
+    static final String ANALYTICS_DATA_STORAGE = "AnalyticsDataStorage";
 
     static final String ANALYTICS_REQUEST_VISITOR_ID_KEY            = "vid";
     static final String ANALYTICS_REQUEST_CHARSET_KEY               = "ce";
@@ -169,7 +169,7 @@ final class AnalyticsEdgeConstants {
         private EventDataKeys() {}
 
         static final class Analytics {
-            static final String EXTENSION_NAME = "com.adobe.module.analytics";
+            static final String EXTENSION_NAME = "com.adobe.module.analyticsedge";
             static final String FORCE_KICK_HITS  = "forcekick";
             static final String CLEAR_HITS_QUEUE = "clearhitsqueue";
             static final String ANALYTICS_ID     = "aid";

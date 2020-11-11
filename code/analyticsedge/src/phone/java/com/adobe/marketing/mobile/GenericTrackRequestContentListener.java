@@ -17,7 +17,7 @@ package com.adobe.marketing.mobile;
  *
  * <p>
  * Monitor Generic Track events for sending track requests to the Experience Edge.
- * @see AnalyticsEdgeInternal
+ * @see AnalyticsInternal
  */
 public class GenericTrackRequestContentListener extends ExtensionListener {
 
@@ -29,11 +29,11 @@ public class GenericTrackRequestContentListener extends ExtensionListener {
     public void hear(final Event event) {
 
         if (event == null || event.getEventData() == null) {
-            Log.debug(AnalyticsEdgeConstants.LOG_TAG, "Event or Event data is null.");
+            Log.debug(AnalyticsConstants.LOG_TAG, "Event or Event data is null.");
             return;
         }
 
-        final AnalyticsEdgeInternal parentExtension = (AnalyticsEdgeInternal) super.getParentExtension();
+        final AnalyticsInternal parentExtension = (AnalyticsInternal) super.getParentExtension();
 
         if (parentExtension == null) {
             return;

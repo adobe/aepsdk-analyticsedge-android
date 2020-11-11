@@ -12,37 +12,37 @@
 
 package com.adobe.marketing.mobile;
 
-import static com.adobe.marketing.mobile.AnalyticsEdgeConstants.EXTENSION_VERSION;
-import static com.adobe.marketing.mobile.AnalyticsEdgeConstants.LOG_TAG;
+import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_VERSION;
+import static com.adobe.marketing.mobile.AnalyticsConstants.LOG_TAG;
 
 
-public final class AnalyticsEdge {
+public final class Analytics {
 
-    private AnalyticsEdge() {}
+    private Analytics() {}
 
     /**
-     * Returns the current version of the Analytics Edge extension.
+     * Returns the current version of the Analytics extension.
      *
-     * @return A {@link String} representing the Analytics Edge extension version
+     * @return A {@link String} representing the Analytics extension version
      */
     public static String extensionVersion() {
         return EXTENSION_VERSION;
     }
 
     /**
-     * Registers the Analytics Edge extension with the {@code MobileCore}.
+     * Registers the Analytics extension with the {@code MobileCore}.
      * <p>
      * This will allow the extension to send and receive events to and from the SDK.
      */
     public static void registerExtension() {
         if(MobileCore.getCore() == null || MobileCore.getCore().eventHub == null) {
-             Log.warning(LOG_TAG, "Unable to register Analytics Edge SDK since MobileCore is not initialized properly. For more details refer to https://aep-sdks.gitbook.io/docs/using-mobile-extensions/mobile-core");
+             Log.warning(LOG_TAG, "Unable to register Analytics SDK since MobileCore is not initialized properly. For more details refer to https://aep-sdks.gitbook.io/docs/using-mobile-extensions/mobile-core");
         }
 
-        MobileCore.registerExtension(AnalyticsEdgeInternal.class, new ExtensionErrorCallback<ExtensionError>() {
+        MobileCore.registerExtension(AnalyticsInternal.class, new ExtensionErrorCallback<ExtensionError>() {
             @Override
             public void error(ExtensionError extensionError) {
-                Log.debug("There was an error registering Analytics Edge Extension: %s", extensionError.getErrorName());
+                Log.debug("There was an error registering Analytics Extension: %s", extensionError.getErrorName());
             }
         });
     }

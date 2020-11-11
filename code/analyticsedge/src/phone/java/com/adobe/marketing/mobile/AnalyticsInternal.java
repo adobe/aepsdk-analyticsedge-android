@@ -12,9 +12,9 @@
 
 package com.adobe.marketing.mobile;
 
-import static com.adobe.marketing.mobile.AnalyticsEdgeConstants.EXTENSION_NAME;
-import static com.adobe.marketing.mobile.AnalyticsEdgeConstants.EXTENSION_VERSION;
-import static com.adobe.marketing.mobile.AnalyticsEdgeConstants.LOG_TAG;
+import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_NAME;
+import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_VERSION;
+import static com.adobe.marketing.mobile.AnalyticsConstants.LOG_TAG;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -26,20 +26,20 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class AnalyticsEdgeInternal extends Extension implements EventsHandler {
+public class AnalyticsInternal extends Extension implements EventsHandler {
 
     private ConcurrentLinkedQueue<Event> eventQueue = new ConcurrentLinkedQueue<>();
-    private static final String MODULE_NAME = "com.adobe.aepsdk.module.analyticsedge";
+    private static final String MODULE_NAME = "com.adobe.aepsdk.module.analytics";
     private PlatformServices platformServices = new AndroidPlatformServices();
     private ExecutorService executorService;
     private final Object executorMutex = new Object();
-    private AnalyticsEdgeState analyticsEdgeState;
+    private AnalyticsState analyticsState;
 
     /**
      * Constructor.
      *
      * <p>
-     * Called during the Analytics Edge extension's registration.
+     * Called during the Analytics extension's registration.
      * The following listeners are registered during this extension's registration.
      * <ul>
      *     <li> {@link ConfigurationResponseContentListener} listening to event with eventType {@link EventType#CONFIGURATION}
@@ -49,12 +49,12 @@ public class AnalyticsEdgeInternal extends Extension implements EventsHandler {
      *
      * @param extensionApi 	{@link ExtensionApi} instance
      */
-    protected AnalyticsEdgeInternal(final ExtensionApi extensionApi) {
+    protected AnalyticsInternal(final ExtensionApi extensionApi) {
         super(extensionApi);
         registerEventListeners(extensionApi);
 
-        // Init the analytics edge state
-        analyticsEdgeState = new AnalyticsEdgeState();
+        // Init the analytics state
+        analyticsState = new AnalyticsState();
     }
 
     /**
@@ -104,8 +104,8 @@ public class AnalyticsEdgeInternal extends Extension implements EventsHandler {
         extensionApi.registerListener(EventType.CONFIGURATION, EventSource.RESPONSE_CONTENT, ConfigurationResponseContentListener.class);
         extensionApi.registerListener(EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT, GenericTrackRequestContentListener.class);
 
-        Log.debug(AnalyticsEdgeConstants.LOG_TAG, "Registering Analytics Edge extension - version %s",
-                AnalyticsEdgeConstants.EXTENSION_VERSION);
+        Log.debug(AnalyticsConstants.LOG_TAG, "Registering Analytics extension - version %s",
+                AnalyticsConstants.EXTENSION_VERSION);
     }
 
     /**
@@ -137,7 +137,7 @@ public class AnalyticsEdgeInternal extends Extension implements EventsHandler {
             Event eventToProcess = eventQueue.peek();
 
             if (eventToProcess == null) {
-                Log.debug(AnalyticsEdgeConstants.LOG_TAG, "Unable to process event, Event received is null.");
+                Log.debug(AnalyticsConstants.LOG_TAG, "Unable to process event, Event received is null.");
                 return;
             }
 
@@ -145,20 +145,20 @@ public class AnalyticsEdgeInternal extends Extension implements EventsHandler {
                 @Override
                 public void error(final ExtensionError extensionError) {
                     if (extensionError != null) {
-                        Log.warning(AnalyticsEdgeConstants.LOG_TAG,
-                                String.format("AnalyticsEdgeInternal : Could not process event, an error occurred while retrieving configuration shared state: %s",
+                        Log.warning(AnalyticsConstants.LOG_TAG,
+                                String.format("AnalyticsInternal : Could not process event, an error occurred while retrieving configuration shared state: %s",
                                         extensionError.getErrorName()));
                     }
                 }
             };
 
-            final Map<String, Object> configSharedState = getApi().getSharedEventState(AnalyticsEdgeConstants.EventDataKeys.Configuration.EXTENSION_NAME,
+            final Map<String, Object> configSharedState = getApi().getSharedEventState(AnalyticsConstants.EventDataKeys.Configuration.EXTENSION_NAME,
                     eventToProcess, configurationErrorCallback);
 
             // NOTE: configuration is mandatory processing the event, so if shared state is null (pending) stop processing events
             if (configSharedState == null) {
-                Log.warning(AnalyticsEdgeConstants.LOG_TAG,
-                        "AnalyticsEdgeInternal : Could not process event, configuration shared state is pending");
+                Log.warning(AnalyticsConstants.LOG_TAG,
+                        "AnalyticsInternal : Could not process event, configuration shared state is pending");
                 return;
             }
 
@@ -176,19 +176,19 @@ public class AnalyticsEdgeInternal extends Extension implements EventsHandler {
     @Override
     public void processConfigurationResponse(final Event event) {
         if (event == null) {
-            Log.debug(AnalyticsEdgeConstants.LOG_TAG, "Unable to handle configuration response. Event received is null.");
+            Log.debug(AnalyticsConstants.LOG_TAG, "Unable to handle configuration response. Event received is null.");
             return;
         }
 
         final EventData configData = event.getData();
 
         // save to analytics state
-        analyticsEdgeState.extractConfigurationInfo(configData);
+        analyticsState.extractConfigurationInfo(configData);
 
         getExecutor().execute(new Runnable() {
             @Override
             public void run() {
-                if (!MobilePrivacyStatus.OPT_IN.equals(analyticsEdgeState.getPrivacyStatus())) {
+                if (!MobilePrivacyStatus.OPT_IN.equals(analyticsState.getPrivacyStatus())) {
                     optOut();
                     return;
                 }
