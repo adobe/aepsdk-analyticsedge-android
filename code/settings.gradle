@@ -1,0 +1,2 @@
+include ':app', ':analyticsedge'
+rootProject.name='analyticsedge-sdk'
