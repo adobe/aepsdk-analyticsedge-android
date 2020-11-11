@@ -80,6 +80,7 @@ public class AnalyticsEdgeInternalTests {
         PowerMockito.mockStatic(App.class);
         Mockito.when(App.getAppContext()).thenReturn(context);
         analyticsEdgeInternal = new AnalyticsEdgeInternal(mockExtensionApi);
+        analyticsEdgeState = new AnalyticsEdgeState();
     }
 
     // ========================================================================================
@@ -156,7 +157,7 @@ public class AnalyticsEdgeInternalTests {
         // test 4
         Event anotherEvent = new Event.Builder("event 2", "eventType", "eventSource").build();
         analyticsEdgeInternal.queueEvent(anotherEvent);
-        assertEquals("The size of the eventQueue should be correct", 2, analyticsEdgeInternal.getEventQueue().size());
+        assertEquals("The size of the eventQueue should be correct", 1, analyticsEdgeInternal.getEventQueue().size());
     }
 
     // ========================================================================================
