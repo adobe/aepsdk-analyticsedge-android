@@ -36,14 +36,107 @@ public final class Analytics {
      */
     public static void registerExtension() {
         if(MobileCore.getCore() == null || MobileCore.getCore().eventHub == null) {
-             Log.warning(LOG_TAG, "Unable to register Analytics SDK since MobileCore is not initialized properly. For more details refer to https://aep-sdks.gitbook.io/docs/using-mobile-extensions/mobile-core");
+            Log.warning(LOG_TAG, "Unable to register Analytics SDK since MobileCore is not initialized properly. For more details refer to https://aep-sdks.gitbook.io/docs/using-mobile-extensions/mobile-core");
         }
 
         MobileCore.registerExtension(AnalyticsInternal.class, new ExtensionErrorCallback<ExtensionError>() {
             @Override
             public void error(ExtensionError extensionError) {
-                Log.debug("There was an error registering Analytics Extension: %s", extensionError.getErrorName());
+                Log.debug("There was an error registering the Analytics Extension: %s", extensionError.getErrorName());
             }
         });
+    }
+
+    /**
+     * Clears all hits from the tracking queue and removes them from the database.
+     *
+     */
+    public static void clearQueue() {
+        Log.debug(AnalyticsConstants.LOG_TAG, "clearQueue - is not currently supported with Edge");
+    }
+
+    /**
+     * Retrieves the total number of analytics hits currently in the tracking queue.
+     *
+     * @param callback {@code AdobeCallback} invoked with the queue size {@code long} value;
+     * when an {@link AdobeCallbackWithError} is provided, an {@link AdobeError} can be returned in the
+     * eventuality of an unexpected error or if the default timeout (5000ms) is met before the callback is returned with queue size.
+     *
+     */
+    public static void getQueueSize(final AdobeCallback<Long> callback) {
+        Log.debug(AnalyticsConstants.LOG_TAG, "getQueueSize - is not currently supported with Edge");
+        if (callback == null) {
+            return;
+        }
+
+        final AdobeCallbackWithError adobeCallbackWithError = callback instanceof AdobeCallbackWithError ?
+                (AdobeCallbackWithError)callback : null;
+
+        if(adobeCallbackWithError != null){
+            adobeCallbackWithError.call(AdobeError.CALLBACK_NULL);
+        } else {
+            callback.call(null);
+        }
+    }
+
+    /**
+     * Retrieves the analytics tracking identifier generated for this app/device instance.
+     *
+     * @param callback {@code AdobeCallback} invoked with the analytics identifier {@code String} value;
+     * when an {@link AdobeCallbackWithError} is provided, an {@link AdobeError} can be returned in the
+     * eventuality of an unexpected error or if the default timeout (5000ms) is met before the callback is returned with analytics tracking identifier.
+     *
+     */
+    public static void getTrackingIdentifier(final AdobeCallback<String> callback) {
+        Log.debug(AnalyticsConstants.LOG_TAG, "getTrackingIdentifier - is not currently supported with Edge");
+        if (callback == null) {
+            return;
+        }
+
+        final AdobeCallbackWithError adobeCallbackWithError = callback instanceof AdobeCallbackWithError ?
+                (AdobeCallbackWithError)callback : null;
+
+        if(adobeCallbackWithError != null){
+            adobeCallbackWithError.call(AdobeError.CALLBACK_NULL);
+        } else {
+            callback.call(null);
+        }
+    }
+
+    /**
+     * Retrieves the visitor identifier
+     * @param callback {@code AdobeCallback} invoked with the visitor identifier {@code String} value;
+     *  when an {@link AdobeCallbackWithError} is provided, an {@link AdobeError} can be returned in the
+     *  eventuality of an unexpected error or if the default timeout (5000ms) is met before the callback is returned with visitor identifier.
+     */
+    public static void getVisitorIdentifier(final AdobeCallback<String> callback) {
+        Log.debug(AnalyticsConstants.LOG_TAG, "getVisitorIdentifier - is not currently supported with Edge");
+        if (callback == null) {
+            return;
+        }
+
+        final AdobeCallbackWithError adobeCallbackWithError = callback instanceof AdobeCallbackWithError ?
+                (AdobeCallbackWithError)callback : null;
+
+        if(adobeCallbackWithError != null){
+            adobeCallbackWithError.call(AdobeError.CALLBACK_NULL);
+        } else {
+            callback.call(null);
+        }
+    }
+
+    /**
+     * Forces analytics to send all queued hits regardless of current batch options.
+     */
+    public static void sendQueuedHits() {
+        Log.debug(AnalyticsConstants.LOG_TAG, "sendQueuedHits - is not currently supported with Edge");
+    }
+
+    /**
+     * Sets the visitor identifier
+     * @param visitorID {@code String} new value for visitor identifier
+     */
+    public static void setVisitorIdentifier(final String visitorID) {
+        Log.debug(AnalyticsConstants.LOG_TAG, "setVisitorIdentifier - is not currently supported with Edge");
     }
 }
