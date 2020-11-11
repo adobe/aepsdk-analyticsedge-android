@@ -25,17 +25,17 @@ jobs:
       - run:
           name: UnitTests
           command: code/gradlew -p code/analyticsedge platformUnitTestJacocoReport
-  publish:
-    working_directory: ~/code
-    docker:
-      - image: circleci/android:api-29
-    environment:
-      JVM_OPTS: -Xmx3200m
-    steps:
-      - checkout
-      - run:
-          name: Bintray Upload
-          command: code/gradlew -p code/analyticsedge bintrayUpload -PapiKey=$bintrayAPIKey -PgpgPassphrase=$gpgPassphrase
+  # publish:
+  #   working_directory: ~/code
+  #   docker:
+  #     - image: circleci/android:api-29
+  #   environment:
+  #     JVM_OPTS: -Xmx3200m
+  #   steps:
+  #     - checkout
+  #     - run:
+  #         name: Bintray Upload
+  #         command: code/gradlew -p code/analyticsedge bintrayUpload -PapiKey=$bintrayAPIKey -PgpgPassphrase=$gpgPassphrase
 workflows:
   version: 2
   build-test-approve-and-publish:
@@ -52,6 +52,6 @@ workflows:
           type: approval
           requires:
            - test
-      - publish:
-          requires:
-            - hold
+      # - publish:
+      #     requires:
+      #       - hold
