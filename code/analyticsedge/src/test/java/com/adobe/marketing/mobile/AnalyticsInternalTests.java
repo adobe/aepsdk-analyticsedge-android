@@ -37,7 +37,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({ExtensionApi.class, ExtensionUnexpectedError.class, AnalyticsState.class, PlatformServices.class, LocalStorageService.class, Edge.class, ExperienceEvent.class, App.class, Context.class})
+@PrepareForTest({ExtensionApi.class, ExtensionUnexpectedError.class, PlatformServices.class, LocalStorageService.class, Edge.class, ExperienceEvent.class, App.class, Context.class})
 public class AnalyticsInternalTests {
 
     private int EXECUTOR_TIMEOUT = 5;
@@ -48,8 +48,6 @@ public class AnalyticsInternalTests {
     ExtensionApi mockExtensionApi;
     @Mock
     ExtensionUnexpectedError mockExtensionUnexpectedError;
-    @Mock
-    AnalyticsState analyticsState;
     @Mock
     PlatformServices mockPlatformServices;
     @Mock
@@ -72,7 +70,6 @@ public class AnalyticsInternalTests {
         PowerMockito.mockStatic(App.class);
         Mockito.when(App.getAppContext()).thenReturn(context);
         analyticsInternal = new AnalyticsInternal(mockExtensionApi);
-        analyticsState = new AnalyticsState();
     }
 
     // ========================================================================================
@@ -170,7 +167,7 @@ public class AnalyticsInternalTests {
         analyticsInternal.processEvents();
 
         // verify
-        verify(mockExtensionApi, times(0)).getSharedEventState(AnalyticsConstants.EventDataKeys.Configuration.EXTENSION_NAME, mockEvent, mockCallback);
+        verify(mockExtensionApi, times(0)).getSharedEventState(AnalyticsConstants.SharedStateKeys.CONFIGURATION, mockEvent, mockCallback);
     }
 
     // ========================================================================================
