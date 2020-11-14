@@ -24,7 +24,9 @@ import org.mockito.Mockito;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
+import org.powermock.reflect.internal.WhiteboxImpl;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -32,15 +34,13 @@ import java.util.concurrent.ExecutorService;
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({ExtensionApi.class, ExtensionUnexpectedError.class, PlatformServices.class, LocalStorageService.class, Edge.class, ExperienceEvent.class, App.class, Context.class})
+@PrepareForTest({ExtensionApi.class, ExtensionUnexpectedError.class, PlatformServices.class, LocalStorageService.class, Edge.class, ExperienceEvent.class, App.class, Context.class, EventHub.class})
 public class AnalyticsInternalTests {
 
-    private int EXECUTOR_TIMEOUT = 5;
     private AnalyticsInternal analyticsInternal;
 
     // Mocks
@@ -62,6 +62,8 @@ public class AnalyticsInternalTests {
     Application mockApplication;
     @Mock
     Context context;
+    @Mock
+    EventHub mockEventHub;
 
     @Before
     public void setup() {
@@ -69,6 +71,14 @@ public class AnalyticsInternalTests {
         PowerMockito.mockStatic(ExperienceEvent.class);
         PowerMockito.mockStatic(App.class);
         Mockito.when(App.getAppContext()).thenReturn(context);
+        analyticsInternal = new AnalyticsInternal(mockExtensionApi);
+    }
+
+    private void setupForSharedStateCreation() {
+        PowerMockito.mockStatic(EventHub.class);
+        mockEventHub = new EventHub("testEventHub", mockPlatformServices);
+        mockExtensionApi = new ExtensionApi(mockEventHub);
+        mockExtensionApi.setModuleName(AnalyticsConstants.SharedStateKeys.CONFIGURATION);
         analyticsInternal = new AnalyticsInternal(mockExtensionApi);
     }
 
@@ -181,5 +191,270 @@ public class AnalyticsInternalTests {
 
         // verify
         assertEquals("Gets the same executor instance on the next get", executorService, analyticsInternal.getExecutor());
+    }
+
+    // ========================================================================================
+    // handleGenericTrack
+    // ========================================================================================
+    @Test
+    public void test_handleGenericTrack_Smoke() {
+        // setup
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).build();
+
+        // test
+        analyticsInternal.handleGenericTrackEvent(sampleEvent);
+
+        // verify
+        PowerMockito.verifyStatic(Edge.class, times(1));
+        Edge.sendEvent(any(ExperienceEvent.class), (EdgeCallback) eq(null));
+    }
+
+    @Test
+    public void test_handleGenericTrack_NullTrackEvent() {
+        // setup
+        Event sampleEvent = null;
+
+        // test
+        analyticsInternal.handleGenericTrackEvent(sampleEvent);
+
+        // verify
+        PowerMockito.verifyStatic(Edge.class, times(0));
+        Edge.sendEvent(any(ExperienceEvent.class), (EdgeCallback) eq(null));
+    }
+
+    @Test
+    public void test_handleGenericTrack_EventNotATrackEvent() {
+        // setup
+        Event sampleEvent = new Event.Builder("random event", EventType.GENERIC_DATA, EventSource.REQUEST_CONTENT).build();
+
+        // test
+        analyticsInternal.handleGenericTrackEvent(sampleEvent);
+
+        // verify
+        PowerMockito.verifyStatic(Edge.class, times(0));
+        Edge.sendEvent(any(ExperienceEvent.class), (EdgeCallback) eq(null));
+    }
+
+    @Test
+    public void test_handleGenericTrack_WhenPrivacyOptedOut() {
+        // setup
+        HashMap<String,Object> state = new HashMap<String, Object>() {
+            {
+                put(AnalyticsConstants.Configuration.GLOBAL_CONFIG_PRIVACY, "optedout");
+            }
+        };
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setEventNumber(1).build();
+        setupForSharedStateCreation();
+        mockExtensionApi.setSharedEventState(state, sampleEvent, null);
+
+        // test
+        analyticsInternal.handleGenericTrackEvent(sampleEvent);
+
+        // verify
+        PowerMockito.verifyStatic(Edge.class, times(0));
+        Edge.sendEvent(any(ExperienceEvent.class), (EdgeCallback) eq(null));
+    }
+
+    // ========================================================================================
+    // processAnalyticsVars
+    // ========================================================================================
+    @Test
+    public void test_processAnalyticsVars_trackActionInternalTrue() {
+        // setup
+        HashMap<String,String> processedVars = new HashMap<>();
+        HashMap<String, Object> analyticsVars = new HashMap<>();
+        analyticsVars.put(AnalyticsConstants.EventDataKeys.TRACK_ACTION, "action");
+        analyticsVars.put(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, true);
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setEventData(analyticsVars).build();
+        String eventTimestamp = Long.toString(sampleEvent.getTimestampInSeconds());
+
+        // test
+        try {
+            processedVars = WhiteboxImpl.invokeMethod(analyticsInternal, "processAnalyticsVars", sampleEvent);
+        } catch (Exception e){
+            fail("Exception when invoking processAnalyticsVars: " + e.getMessage());
+        }
+
+        // verify
+        assertEquals("UTF-8", processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.CHARSET));
+        assertEquals(AnalyticsConstants.TIMESTAMP_TIMEZONE_OFFSET, processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.FORMATTED_TIMESTAMP));
+        assertEquals(AnalyticsConstants.IGNORE_PAGE_NAME_VALUE, processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.IGNORE_PAGE_NAME));
+        assertEquals(AnalyticsConstants.INTERNAL_ACTION_PREFIX+"action", processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.ACTION_NAME));
+        assertEquals(AnalyticsConstants.APP_STATE_FOREGROUND, processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.CUSTOMER_PERSPECTIVE));
+        assertEquals(eventTimestamp, processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.STRING_TIMESTAMP));
+    }
+
+    @Test
+    public void test_processAnalyticsVars_trackActionInternalFalse() {
+        // setup
+        HashMap<String,String> processedVars = new HashMap<>();
+        HashMap<String, Object> analyticsVars = new HashMap<>();
+        analyticsVars.put(AnalyticsConstants.EventDataKeys.TRACK_ACTION, "action");
+        analyticsVars.put(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, false);
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setEventData(analyticsVars).build();
+        String eventTimestamp = Long.toString(sampleEvent.getTimestampInSeconds());
+
+        // test
+        try {
+            processedVars = WhiteboxImpl.invokeMethod(analyticsInternal, "processAnalyticsVars", sampleEvent);
+        } catch (Exception e){
+            fail("Exception when invoking processAnalyticsVars: " + e.getMessage());
+        }
+
+        // verify
+        assertEquals("UTF-8", processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.CHARSET));
+        assertEquals(AnalyticsConstants.TIMESTAMP_TIMEZONE_OFFSET, processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.FORMATTED_TIMESTAMP));
+        assertEquals(AnalyticsConstants.IGNORE_PAGE_NAME_VALUE, processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.IGNORE_PAGE_NAME));
+        assertEquals(AnalyticsConstants.ACTION_PREFIX+"action", processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.ACTION_NAME));
+        assertEquals(AnalyticsConstants.APP_STATE_FOREGROUND, processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.CUSTOMER_PERSPECTIVE));
+        assertEquals(eventTimestamp, processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.STRING_TIMESTAMP));
+    }
+
+    @Test
+    public void test_processAnalyticsVars_trackState() {
+        // setup
+        HashMap<String,String> processedVars = new HashMap<>();
+        HashMap<String, Object> analyticsVars = new HashMap<>();
+        analyticsVars.put(AnalyticsConstants.EventDataKeys.TRACK_STATE, "state");
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setEventData(analyticsVars).build();
+        String eventTimestamp = Long.toString(sampleEvent.getTimestampInSeconds());
+
+        // test
+        try {
+            processedVars = WhiteboxImpl.invokeMethod(analyticsInternal, "processAnalyticsVars", sampleEvent);
+        } catch (Exception e){
+            fail("Exception when invoking processAnalyticsVars: " + e.getMessage());
+        }
+
+        // verify
+        assertEquals("UTF-8", processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.CHARSET));
+        assertEquals(AnalyticsConstants.TIMESTAMP_TIMEZONE_OFFSET, processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.FORMATTED_TIMESTAMP));
+        assertEquals("state", processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.PAGE_NAME));
+        assertEquals(AnalyticsConstants.APP_STATE_FOREGROUND, processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.CUSTOMER_PERSPECTIVE));
+        assertEquals(eventTimestamp, processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.STRING_TIMESTAMP));
+    }
+
+    // ========================================================================================
+    // processAnalyticsData
+    // ========================================================================================
+    @Test
+    public void test_processAnalyticsData_trackActionInternalTrue() {
+        // setup
+        HashMap<String,String> processedData = new HashMap<>();
+        HashMap<String, Object> analyticsVars = new HashMap<>();
+        analyticsVars.put(AnalyticsConstants.EventDataKeys.TRACK_ACTION, "action");
+        analyticsVars.put(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, true);
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setEventData(analyticsVars).build();
+
+        // test
+        try {
+            processedData = WhiteboxImpl.invokeMethod(analyticsInternal, "processAnalyticsData", sampleEvent);
+        } catch (Exception e){
+            fail("Exception when invoking processAnalyticsData: " + e.getMessage());
+        }
+
+        // verify
+        assertEquals("action", processedData.get(AnalyticsConstants.EventDataKeys.TRACK_ACTION));
+        assertEquals("unknown", processedData.get(AnalyticsConstants.AnalyticsRequestKeys.PRIVACY_MODE));
+        assertEquals("true", processedData.get(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL));
+        assertEquals("action", processedData.get(AnalyticsConstants.ContextDataKeys.INTERNAL_ACTION_KEY));
+    }
+
+    @Test
+    public void test_processAnalyticsData_trackActionInternalFalse() {
+        // setup
+        HashMap<String,String> processedData = new HashMap<>();
+        HashMap<String, Object> analyticsVars = new HashMap<>();
+        analyticsVars.put(AnalyticsConstants.EventDataKeys.TRACK_ACTION, "action");
+        analyticsVars.put(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, false);
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setEventData(analyticsVars).build();
+
+        // test
+        try {
+            processedData = WhiteboxImpl.invokeMethod(analyticsInternal, "processAnalyticsData", sampleEvent);
+        } catch (Exception e){
+            fail("Exception when invoking processAnalyticsData: " + e.getMessage());
+        }
+
+        // verify
+        assertEquals("action", processedData.get(AnalyticsConstants.EventDataKeys.TRACK_ACTION));
+        assertEquals("unknown", processedData.get(AnalyticsConstants.AnalyticsRequestKeys.PRIVACY_MODE));
+        assertEquals("false", processedData.get(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL));
+        assertEquals("action", processedData.get(AnalyticsConstants.ContextDataKeys.ACTION_KEY));
+    }
+
+    @Test
+    public void test_processAnalyticsData_trackActionPrivacyOptedIn() {
+        // setup
+        HashMap<String,String> processedData = new HashMap<>();
+        HashMap<String, Object> analyticsVars = new HashMap<>();
+        analyticsVars.put(AnalyticsConstants.EventDataKeys.TRACK_ACTION, "action");
+        analyticsVars.put(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, false);
+        HashMap<String,Object> state = new HashMap<String, Object>() {
+            {
+                put(AnalyticsConstants.Configuration.GLOBAL_CONFIG_PRIVACY, "optedin");
+            }
+        };
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setEventData(analyticsVars).setEventNumber(1).build();
+        setupForSharedStateCreation();
+        mockExtensionApi.setSharedEventState(state, sampleEvent, null);
+
+        // test
+        try {
+            processedData = WhiteboxImpl.invokeMethod(analyticsInternal, "processAnalyticsData", sampleEvent);
+        } catch (Exception e){
+            fail("Exception when invoking processAnalyticsData: " + e.getMessage());
+        }
+
+        // verify
+        assertEquals("action", processedData.get(AnalyticsConstants.EventDataKeys.TRACK_ACTION));
+        assertEquals("false", processedData.get(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL));
+        assertEquals("action", processedData.get(AnalyticsConstants.ContextDataKeys.ACTION_KEY));
+    }
+
+    @Test
+    public void test_processAnalyticsData_trackState() {
+        // setup
+        HashMap<String,String> processedData = new HashMap<>();
+        HashMap<String, Object> analyticsVars = new HashMap<>();
+        analyticsVars.put(AnalyticsConstants.EventDataKeys.TRACK_STATE, "state");
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setEventData(analyticsVars).build();
+
+        // test
+        try {
+            processedData = WhiteboxImpl.invokeMethod(analyticsInternal, "processAnalyticsData", sampleEvent);
+        } catch (Exception e){
+            fail("Exception when invoking processAnalyticsData: " + e.getMessage());
+        }
+
+        // verify
+        assertEquals(processedData.get(AnalyticsConstants.EventDataKeys.TRACK_STATE), "state");
+        assertEquals(processedData.get(AnalyticsConstants.AnalyticsRequestKeys.PRIVACY_MODE), "unknown");
+    }
+
+    @Test
+    public void test_processAnalyticsData_trackStatePrivacyOptedIn() {
+        // setup
+        HashMap<String,String> processedData = new HashMap<>();
+        HashMap<String, Object> analyticsVars = new HashMap<>();
+        analyticsVars.put(AnalyticsConstants.EventDataKeys.TRACK_STATE, "state");
+        HashMap<String,Object> state = new HashMap<String, Object>() {
+            {
+                put(AnalyticsConstants.Configuration.GLOBAL_CONFIG_PRIVACY, "optedin");
+            }
+        };
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setEventData(analyticsVars).setEventNumber(1).build();
+        setupForSharedStateCreation();
+        mockExtensionApi.setSharedEventState(state, sampleEvent, null);
+
+        // test
+        try {
+            processedData = WhiteboxImpl.invokeMethod(analyticsInternal, "processAnalyticsData", sampleEvent);
+        } catch (Exception e){
+            fail("Exception when invoking processAnalyticsData: " + e.getMessage());
+        }
+
+        // verify
+        assertEquals("state", processedData.get(AnalyticsConstants.EventDataKeys.TRACK_STATE));
     }
 }

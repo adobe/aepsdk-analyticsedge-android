@@ -175,7 +175,7 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
         getExecutor().execute(new Runnable() {
             @Override
             public void run() {
-                if (MobilePrivacyStatus.OPT_OUT.equals(getPrivacyStatus(event.getData()))) {
+                if (MobilePrivacyStatus.OPT_OUT.equals(getPrivacyStatus(event))) {
                     optOut();
                     return;
                 }
@@ -188,7 +188,7 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
     @Override
     public void handleGenericTrackEvent(final Event event) {
         if (event == null) {
-            Log.trace(LOG_TAG, "handleGenericTrackEvent - Event with id %s contained no data, ignoring.", event.getUniqueIdentifier());
+            Log.trace(LOG_TAG, "handleGenericTrackEvent - Event with id %s contained no data, ignoring.");
             return;
         }
 
@@ -207,10 +207,14 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
      *
      * @return The {@link MobilePrivacyStatus} present in the configuration shared state.
      */
-    private MobilePrivacyStatus getPrivacyStatus(EventData configData) {
-        return MobilePrivacyStatus.fromString(configData.optString(
-                AnalyticsConstants.Configuration.GLOBAL_CONFIG_PRIVACY,
-                AnalyticsConstants.DEFAULT_PRIVACY_STATUS.getValue()));
+    private MobilePrivacyStatus getPrivacyStatus(Event event) {
+        EventData configSharedState = getApi().getSharedEventState(AnalyticsConstants.SharedStateKeys.CONFIGURATION, event);
+        if(configSharedState != null) {
+            return MobilePrivacyStatus.fromString(configSharedState.optString(
+                    AnalyticsConstants.Configuration.GLOBAL_CONFIG_PRIVACY,
+                    AnalyticsConstants.DEFAULT_PRIVACY_STATUS.getValue()));
+        }
+        return AnalyticsConstants.DEFAULT_PRIVACY_STATUS;
     }
 
     private String getActionPrefix(boolean isInternalAction) {
@@ -223,7 +227,7 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
     }
 
     private void track(Event event) {
-        if(getPrivacyStatus(event.getData()).equals(MobilePrivacyStatus.OPT_OUT)) {
+        if(getPrivacyStatus(event).equals(MobilePrivacyStatus.OPT_OUT)) {
             Log.warning(LOG_TAG, "track - Dropping track request (Privacy is opted out).");
             return;
         }
@@ -302,7 +306,7 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
         }
 
         // Todo :- Is TimeSinceLaunch" param is required? If so, calculate by listening to lifecycle shared state update
-        if(getPrivacyStatus(eventData) == MobilePrivacyStatus.UNKNOWN) {
+        if(getPrivacyStatus(event) == MobilePrivacyStatus.UNKNOWN) {
             processedData.put(AnalyticsConstants.AnalyticsRequestKeys.PRIVACY_MODE, "unknown");
         }
 

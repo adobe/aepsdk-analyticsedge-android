@@ -11,7 +11,6 @@
 
 package com.adobe.marketing.mobile;
 
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -21,6 +20,12 @@ import org.mockito.Mockito;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({MobileCore.class, Log.class})
@@ -36,7 +41,7 @@ public class AnalyticsPublicAPITests {
     public void test_extensionVersionAPI() {
         // test
         String extensionVersion = Analytics.extensionVersion();
-        Assert.assertEquals("The Extension version API returns the correct value", AnalyticsConstants.EXTENSION_VERSION,
+        assertEquals("The Extension version API returns the correct value", AnalyticsConstants.EXTENSION_VERSION,
                 extensionVersion);
     }
 
@@ -52,10 +57,43 @@ public class AnalyticsPublicAPITests {
 
         // verify the callback
         ExtensionErrorCallback extensionErrorCallback = callbackCaptor.getValue();
-        Assert.assertNotNull("The extension callback should not be null", extensionErrorCallback);
+        assertNotNull("The extension callback should not be null", extensionErrorCallback);
 
         // should not crash on calling the callback
         extensionErrorCallback.error(ExtensionError.UNEXPECTED_ERROR);
+    }
+
+    @Test
+    public void test_clearQueue() {
+        // test
+        Analytics.clearQueue();
+        PowerMockito.verifyStatic(Log.class, times(1));
+
+        // verify
+        Log.debug("AnalyticsEdge", "clearQueue - is not currently supported with Edge");
+    }
+
+    @Test
+    public void test_getQueueSize() {
+        // setup
+        final AdobeError[] error = new AdobeError[1];
+        final long[] queueSize = new long[1];
+        // test
+        Analytics.getQueueSize(new AdobeCallbackWithError<Long>() {
+            @Override
+            public void fail(AdobeError adobeError) {
+                error[0] = adobeError;
+            }
+
+            @Override
+            public void call(Long aLong) {
+                queueSize[0] = aLong;
+            }
+        });
+
+        // verify
+        assertEquals(AdobeError.CALLBACK_NULL, error[0]);
+        assertEquals(0, queueSize[0]);
     }
 
 }

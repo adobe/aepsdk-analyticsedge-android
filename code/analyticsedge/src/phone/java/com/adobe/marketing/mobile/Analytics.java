@@ -73,9 +73,8 @@ public final class Analytics {
                 (AdobeCallbackWithError)callback : null;
 
         if(adobeCallbackWithError != null){
-            adobeCallbackWithError.call(AdobeError.CALLBACK_NULL);
-        } else {
-            callback.call(null);
+            adobeCallbackWithError.fail(AdobeError.CALLBACK_NULL);
+            adobeCallbackWithError.call(0l);
         }
     }
 
@@ -97,9 +96,8 @@ public final class Analytics {
                 (AdobeCallbackWithError)callback : null;
 
         if(adobeCallbackWithError != null){
-            adobeCallbackWithError.call(AdobeError.CALLBACK_NULL);
-        } else {
-            callback.call(null);
+            adobeCallbackWithError.fail(AdobeError.CALLBACK_NULL);
+            adobeCallbackWithError.call("");
         }
     }
 
@@ -119,9 +117,8 @@ public final class Analytics {
                 (AdobeCallbackWithError)callback : null;
 
         if(adobeCallbackWithError != null){
-            adobeCallbackWithError.call(AdobeError.CALLBACK_NULL);
-        } else {
-            callback.call(null);
+            adobeCallbackWithError.fail(AdobeError.CALLBACK_NULL);
+            adobeCallbackWithError.call("");
         }
     }
 
