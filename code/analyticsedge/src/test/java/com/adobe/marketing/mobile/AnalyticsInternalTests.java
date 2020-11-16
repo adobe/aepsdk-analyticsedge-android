@@ -13,7 +13,6 @@
 // TODO: placeholder, needs to be cleaned
 package com.adobe.marketing.mobile;
 
-import android.app.Application;
 import android.content.Context;
 
 import org.junit.Before;
@@ -24,21 +23,24 @@ import org.mockito.Mockito;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
+import org.powermock.reflect.Whitebox;
 import org.powermock.reflect.internal.WhiteboxImpl;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({ExtensionApi.class, ExtensionUnexpectedError.class, PlatformServices.class, LocalStorageService.class, Edge.class, ExperienceEvent.class, App.class, Context.class, EventHub.class})
+@PrepareForTest({ExtensionApi.class, ExtensionUnexpectedError.class, PlatformServices.class, Edge.class, Context.class, ExperienceEvent.class, App.class})
 public class AnalyticsInternalTests {
 
     private AnalyticsInternal analyticsInternal;
@@ -49,21 +51,7 @@ public class AnalyticsInternalTests {
     @Mock
     ExtensionUnexpectedError mockExtensionUnexpectedError;
     @Mock
-    PlatformServices mockPlatformServices;
-    @Mock
-    LocalStorageService mockLocalStorageService;
-    @Mock
-    NetworkService mockNetworkService;
-    @Mock
-    Map<String, Object> mockConfigData;
-    @Mock
-    ConcurrentLinkedQueue<Event> mockEventQueue;
-    @Mock
-    Application mockApplication;
-    @Mock
     Context context;
-    @Mock
-    EventHub mockEventHub;
 
     @Before
     public void setup() {
@@ -74,12 +62,14 @@ public class AnalyticsInternalTests {
         analyticsInternal = new AnalyticsInternal(mockExtensionApi);
     }
 
-    private void setupForSharedStateCreation() {
-        PowerMockito.mockStatic(EventHub.class);
-        mockEventHub = new EventHub("testEventHub", mockPlatformServices);
-        mockExtensionApi = new ExtensionApi(mockEventHub);
-        mockExtensionApi.setModuleName(AnalyticsConstants.SharedStateKeys.CONFIGURATION);
-        analyticsInternal = new AnalyticsInternal(mockExtensionApi);
+    private void setPrivacyStatus(final String privacyStatus) {
+        HashMap<String,Object> configData = new HashMap<String, Object>() {
+            {
+                put(AnalyticsConstants.Configuration.GLOBAL_CONFIG_PRIVACY, privacyStatus);
+            }
+        };
+        Event configEvent = new Event.Builder("config event", EventType.CONFIGURATION, EventSource.RESPONSE_CONTENT).setEventData(configData).build();
+        analyticsInternal.processConfigurationResponse(configEvent);
     }
 
     // ========================================================================================
@@ -180,6 +170,40 @@ public class AnalyticsInternalTests {
         verify(mockExtensionApi, times(0)).getSharedEventState(AnalyticsConstants.SharedStateKeys.CONFIGURATION, mockEvent, mockCallback);
     }
 
+    @Test
+    public void test_processEvents_when_handlingGenericTrackEvent() {
+        // setup
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).build();
+
+        // test
+        analyticsInternal.queueEvent(sampleEvent);
+        analyticsInternal.processEvents();
+
+        // verify
+        PowerMockito.verifyStatic(Edge.class, times(1));
+        Edge.sendEvent(any(ExperienceEvent.class), (EdgeCallback) eq(null));
+    }
+
+    @Test
+    public void test_processEvents_when_handlingConfigurationResponseEvent() {
+        // setup
+        HashMap<String,Object> configData = new HashMap<String, Object>() {
+            {
+                put(AnalyticsConstants.Configuration.GLOBAL_CONFIG_PRIVACY, "optedin");
+            }
+        };
+        Event sampleEvent = new Event.Builder("config event", EventType.CONFIGURATION, EventSource.RESPONSE_CONTENT).setEventData(configData).build();
+        // queue a track event
+        analyticsInternal.queueEvent(new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).build());
+        // test
+        analyticsInternal.queueEvent(sampleEvent);
+        analyticsInternal.processEvents();
+
+        // verify
+        PowerMockito.verifyStatic(Edge.class, times(1));
+        Edge.sendEvent(any(ExperienceEvent.class), (EdgeCallback) eq(null));
+    }
+
     // ========================================================================================
     // getExecutor
     // ========================================================================================
@@ -238,14 +262,9 @@ public class AnalyticsInternalTests {
     @Test
     public void test_handleGenericTrack_WhenPrivacyOptedOut() {
         // setup
-        HashMap<String,Object> state = new HashMap<String, Object>() {
-            {
-                put(AnalyticsConstants.Configuration.GLOBAL_CONFIG_PRIVACY, "optedout");
-            }
-        };
         Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setEventNumber(1).build();
-        setupForSharedStateCreation();
-        mockExtensionApi.setSharedEventState(state, sampleEvent, null);
+        // setup privacy status
+        setPrivacyStatus("optedout");
 
         // test
         analyticsInternal.handleGenericTrackEvent(sampleEvent);
@@ -390,14 +409,9 @@ public class AnalyticsInternalTests {
         HashMap<String, Object> analyticsVars = new HashMap<>();
         analyticsVars.put(AnalyticsConstants.EventDataKeys.TRACK_ACTION, "action");
         analyticsVars.put(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, false);
-        HashMap<String,Object> state = new HashMap<String, Object>() {
-            {
-                put(AnalyticsConstants.Configuration.GLOBAL_CONFIG_PRIVACY, "optedin");
-            }
-        };
         Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setEventData(analyticsVars).setEventNumber(1).build();
-        setupForSharedStateCreation();
-        mockExtensionApi.setSharedEventState(state, sampleEvent, null);
+        // setup privacy status
+        setPrivacyStatus("optedin");
 
         // test
         try {
@@ -438,14 +452,9 @@ public class AnalyticsInternalTests {
         HashMap<String,String> processedData = new HashMap<>();
         HashMap<String, Object> analyticsVars = new HashMap<>();
         analyticsVars.put(AnalyticsConstants.EventDataKeys.TRACK_STATE, "state");
-        HashMap<String,Object> state = new HashMap<String, Object>() {
-            {
-                put(AnalyticsConstants.Configuration.GLOBAL_CONFIG_PRIVACY, "optedin");
-            }
-        };
         Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setEventData(analyticsVars).setEventNumber(1).build();
-        setupForSharedStateCreation();
-        mockExtensionApi.setSharedEventState(state, sampleEvent, null);
+        // setup privacy status
+        setPrivacyStatus("optedin");
 
         // test
         try {

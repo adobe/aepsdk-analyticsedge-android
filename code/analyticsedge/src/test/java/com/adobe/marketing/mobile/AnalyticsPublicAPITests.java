@@ -23,9 +23,7 @@ import org.powermock.modules.junit4.PowerMockRunner;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({MobileCore.class, Log.class})
@@ -94,6 +92,72 @@ public class AnalyticsPublicAPITests {
         // verify
         assertEquals(AdobeError.CALLBACK_NULL, error[0]);
         assertEquals(0, queueSize[0]);
+    }
+
+    @Test
+    public void test_getTrackingIdentifier() {
+        // setup
+        final AdobeError[] error = new AdobeError[1];
+        final String[] trackingId = new String[1];
+        // test
+        Analytics.getTrackingIdentifier(new AdobeCallbackWithError<String>() {
+            @Override
+            public void call(String s) {
+                trackingId[0] = s;
+            }
+
+            @Override
+            public void fail(AdobeError adobeError) {
+                error[0] = adobeError;
+            }
+        });
+
+        // verify
+        assertEquals(AdobeError.CALLBACK_NULL, error[0]);
+        assertEquals("", trackingId[0]);
+    }
+
+    @Test
+    public void test_getVisitorIdentifier() {
+        // setup
+        final AdobeError[] error = new AdobeError[1];
+        final String[] visitorId = new String[1];
+        // test
+        Analytics.getVisitorIdentifier(new AdobeCallbackWithError<String>() {
+            @Override
+            public void call(String s) {
+                visitorId[0] = s;
+            }
+
+            @Override
+            public void fail(AdobeError adobeError) {
+                error[0] = adobeError;
+            }
+        });
+
+        // verify
+        assertEquals(AdobeError.CALLBACK_NULL, error[0]);
+        assertEquals("", visitorId[0]);
+    }
+
+    @Test
+    public void test_sendQueuedHits() {
+        // test
+        Analytics.sendQueuedHits();
+        PowerMockito.verifyStatic(Log.class, times(1));
+
+        // verify
+        Log.debug("AnalyticsEdge", "sendQueuedHits - is not currently supported with Edge");
+    }
+
+    @Test
+    public void test_setVisitorIdentifier() {
+        // test
+        Analytics.setVisitorIdentifier("aVisitorId");
+        PowerMockito.verifyStatic(Log.class, times(1));
+
+        // verify
+        Log.debug("AnalyticsEdge", "setVisitorIdentifier - is not currently supported with Edge");
     }
 
 }

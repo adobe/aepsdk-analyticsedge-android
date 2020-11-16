@@ -28,6 +28,7 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
     private PlatformServices platformServices = new AndroidPlatformServices();
     private ExecutorService executorService;
     private final Object executorMutex = new Object();
+    private EventData currentConfiguration = new EventData(); // the last valid config shared state
 
     /**
      * Constructor.
@@ -41,7 +42,7 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
      *     and EventSource {@link EventSource#RESPONSE_CONTENT}</li>
      * </ul>
      *
-     * @param extensionApi 	{@link ExtensionApi} instance
+     * @param extensionApi  {@link ExtensionApi} instance
      */
     protected AnalyticsInternal(final ExtensionApi extensionApi) {
         super(extensionApi);
@@ -84,7 +85,7 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
     /**
      * Overridden method of {@link Extension} class to handle error occurred during registration of the module.
      *
-     * @param extensionUnexpectedError 	{@link ExtensionUnexpectedError} occurred exception
+     * @param extensionUnexpectedError  {@link ExtensionUnexpectedError} occurred exception
      */
     @Override
     protected void onUnexpectedError(ExtensionUnexpectedError extensionUnexpectedError) {
@@ -92,6 +93,11 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
         this.onUnregistered();
     }
 
+    /**
+     * This method registers listeners for the Analytics extension.
+     *
+     * @param extensionApi  {@link ExtensionApi} instance
+     */
     private void registerEventListeners(final ExtensionApi extensionApi) {
         extensionApi.registerListener(EventType.CONFIGURATION, EventSource.RESPONSE_CONTENT, ConfigurationResponseContentListener.class);
         extensionApi.registerListener(EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT, GenericTrackRequestContentListener.class);
@@ -107,7 +113,7 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
      * The queued events are then processed in an orderly fashion.
      * No action is taken if the provided event's value is null.
      *
-     * @param event 	The {@link Event} thats needs to be queued
+     * @param event The {@link Event} to be queued
      */
     void queueEvent(final Event event) {
         if (event == null) {
@@ -144,11 +150,8 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
                 }
             };
 
-            final Map<String, Object> configSharedState = getApi().getSharedEventState(AnalyticsConstants.SharedStateKeys.CONFIGURATION,
-                    eventToProcess, configurationErrorCallback);
-
-            // NOTE: configuration is mandatory processing the event, so if shared state is null (pending) stop processing events
-            if (configSharedState == null) {
+            // NOTE: configuration is mandatory to process an event, so if shared state is null (pending) stop processing events
+            if (currentConfiguration == null) {
                 Log.warning(AnalyticsConstants.LOG_TAG,
                         "AnalyticsInternal : Could not process event, configuration shared state is pending");
                 return;
@@ -165,6 +168,14 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
         }
     }
 
+    /**
+     * Processes the passed in Configuration Response Content event.
+     *
+     * <p>
+     * Any events in the event queue will be cleared if the privacy status is opted out.
+     *
+     * @param event The Configuration Response Content {@link Event} to be processed.
+     */
     @Override
     public void processConfigurationResponse(final Event event) {
         if (event == null) {
@@ -172,10 +183,12 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
             return;
         }
 
+        currentConfiguration = event.getData();
+
         getExecutor().execute(new Runnable() {
             @Override
             public void run() {
-                if (MobilePrivacyStatus.OPT_OUT.equals(getPrivacyStatus(event))) {
+                if (MobilePrivacyStatus.OPT_OUT.equals(getPrivacyStatus())) {
                     optOut();
                     return;
                 }
@@ -185,10 +198,20 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
         });
     }
 
+    /**
+     * Processes the passed in Generic Track Request Content event.
+     *
+     * @param event The Generic Track Request Content {@link Event} to be processed.
+     */
     @Override
     public void handleGenericTrackEvent(final Event event) {
         if (event == null) {
             Log.trace(LOG_TAG, "handleGenericTrackEvent - Event with id %s contained no data, ignoring.");
+            return;
+        }
+
+        if (MobilePrivacyStatus.OPT_OUT.equals(getPrivacyStatus())) {
+            Log.debug(LOG_TAG, "handleGenericTrackEvent - Dropping track request, privacy is opted-out.");
             return;
         }
 
@@ -198,44 +221,68 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
         }
     }
 
+    /**
+     * This method clears the event queue when privacy status is opted out.
+     */
     private void optOut() {
         eventQueue.clear();
     }
 
     /**
-     * Returns the privacy status present in the last valid configuration shared state.
+     * Returns the privacy status present in the last valid configuration.
      *
-     * @return The {@link MobilePrivacyStatus} present in the configuration shared state.
+     * @return The {@link MobilePrivacyStatus} present in the configuration.
      */
-    private MobilePrivacyStatus getPrivacyStatus(Event event) {
-        EventData configSharedState = getApi().getSharedEventState(AnalyticsConstants.SharedStateKeys.CONFIGURATION, event);
-        if(configSharedState != null) {
-            return MobilePrivacyStatus.fromString(configSharedState.optString(
+    private MobilePrivacyStatus getPrivacyStatus() {
+        if(currentConfiguration != null) {
+            return MobilePrivacyStatus.fromString(currentConfiguration.optString(
                     AnalyticsConstants.Configuration.GLOBAL_CONFIG_PRIVACY,
                     AnalyticsConstants.DEFAULT_PRIVACY_STATUS.getValue()));
         }
         return AnalyticsConstants.DEFAULT_PRIVACY_STATUS;
     }
 
+    /**
+     * Helper method to get the correct action prefix.
+     *
+     * @param isInternalAction A boolean signaling if the track request is internal.
+     *
+     * @return The action prefix {@link String} corresponding to the type of track request.
+     */
     private String getActionPrefix(boolean isInternalAction) {
         return isInternalAction ? AnalyticsConstants.INTERNAL_ACTION_PREFIX : AnalyticsConstants.ACTION_PREFIX;
     }
 
+    /**
+     * Helper method to get the correct action key.
+     *
+     * @param isInternalAction A boolean signaling if the track request is internal.
+     *
+     * @return The action key {@link String} corresponding to the type of track request.
+     */
     private String getActionKey(boolean isInternalAction) {
         return isInternalAction ? AnalyticsConstants.ContextDataKeys.INTERNAL_ACTION_KEY :
                 AnalyticsConstants.ContextDataKeys.ACTION_KEY;
     }
 
+    /**
+     * This prepares the analytics variables and analytics data from the passed in event.
+     *
+     * @param event The Generic Track Request Content {@link Event}.
+     */
     private void track(Event event) {
-        if(getPrivacyStatus(event).equals(MobilePrivacyStatus.OPT_OUT)) {
-            Log.warning(LOG_TAG, "track - Dropping track request (Privacy is opted out).");
-            return;
-        }
         HashMap<String, String> analyticsVars = processAnalyticsVars(event);
         HashMap<String, String> analyticsData = processAnalyticsData(event);
         sendAnalyticsHit(analyticsVars, analyticsData);
     }
 
+    /**
+     * This method converts the event's event data into analytics variables.
+     *
+     * @param event The Generic Track Request Content {@link Event}.
+     *
+     * @return {@code Map<String, String>} containing the vars data
+     */
     private HashMap<String, String> processAnalyticsVars(Event event) {
         HashMap<String, String> processedVars = new HashMap<>();
         EventData eventData = event.getData();
@@ -283,6 +330,13 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
         return processedVars;
     }
 
+    /**
+     * This method converts the event's event data into analytics variables.
+     *
+     * @param event The Generic Track Request Content {@link Event}.
+     *
+     * @return {@code Map<String, String>} containing the context data
+     */
     private HashMap<String, String> processAnalyticsData(Event event) {
         HashMap<String, String> processedData = new HashMap<>();
         EventData eventData = event.getData();
@@ -306,13 +360,20 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
         }
 
         // Todo :- Is TimeSinceLaunch" param is required? If so, calculate by listening to lifecycle shared state update
-        if(getPrivacyStatus(event) == MobilePrivacyStatus.UNKNOWN) {
+        if(getPrivacyStatus() == MobilePrivacyStatus.UNKNOWN) {
             processedData.put(AnalyticsConstants.AnalyticsRequestKeys.PRIVACY_MODE, "unknown");
         }
 
         return processedData;
     }
 
+    /**
+     * This method sends the analytics data to the Edge extension to be sent to the Edge.
+     *
+     * @param analyticsVars {@code Map<String, String>} containing the analytics vars
+     * @param analyticsData {@code Map<String, String>} containing the analytics context data
+     *
+     */
     private void sendAnalyticsHit(HashMap<String, String> analyticsVars, HashMap<String, String> analyticsData) {
         HashMap<String, Object> legacyAnalyticsData = new HashMap<>();
         HashMap<String, String> contextData = new HashMap<>();
