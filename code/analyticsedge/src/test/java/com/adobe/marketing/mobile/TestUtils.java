@@ -18,8 +18,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 public class TestUtils {
-    static void waitForExecutor(ExecutorService executor, int executorTime) {
-        Future<?> future = executor.submit(new Runnable() {
+    static void waitForExecutor(final ExecutorService executor, final int executorTime) {
+        final Future<?> future = executor.submit(new Runnable() {
             @Override
             public void run() {
                 // Fake task to check the execution termination

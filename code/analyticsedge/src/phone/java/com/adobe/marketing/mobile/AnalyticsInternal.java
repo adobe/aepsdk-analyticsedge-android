@@ -88,7 +88,7 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
      * @param extensionUnexpectedError  {@link ExtensionUnexpectedError} occurred exception
      */
     @Override
-    protected void onUnexpectedError(ExtensionUnexpectedError extensionUnexpectedError) {
+    protected void onUnexpectedError(final ExtensionUnexpectedError extensionUnexpectedError) {
         super.onUnexpectedError(extensionUnexpectedError);
         this.onUnregistered();
     }
@@ -132,23 +132,12 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
      */
     void processEvents() {
         while (!eventQueue.isEmpty()) {
-            Event eventToProcess = eventQueue.peek();
+            final Event eventToProcess = eventQueue.peek();
 
             if (eventToProcess == null) {
                 Log.debug(AnalyticsConstants.LOG_TAG, "Unable to process event, Event received is null.");
                 return;
             }
-
-            ExtensionErrorCallback<ExtensionError> configurationErrorCallback = new ExtensionErrorCallback<ExtensionError>() {
-                @Override
-                public void error(final ExtensionError extensionError) {
-                    if (extensionError != null) {
-                        Log.warning(AnalyticsConstants.LOG_TAG,
-                                String.format("AnalyticsInternal : Could not process event, an error occurred while retrieving configuration shared state: %s",
-                                        extensionError.getErrorName()));
-                    }
-                }
-            };
 
             // NOTE: configuration is mandatory to process an event, so if shared state is null (pending) stop processing events
             if (currentConfiguration == null) {
@@ -249,7 +238,7 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
      *
      * @return The action prefix {@link String} corresponding to the type of track request.
      */
-    private String getActionPrefix(boolean isInternalAction) {
+    private String getActionPrefix(final boolean isInternalAction) {
         return isInternalAction ? AnalyticsConstants.INTERNAL_ACTION_PREFIX : AnalyticsConstants.ACTION_PREFIX;
     }
 
@@ -260,7 +249,7 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
      *
      * @return The action key {@link String} corresponding to the type of track request.
      */
-    private String getActionKey(boolean isInternalAction) {
+    private String getActionKey(final boolean isInternalAction) {
         return isInternalAction ? AnalyticsConstants.ContextDataKeys.INTERNAL_ACTION_KEY :
                 AnalyticsConstants.ContextDataKeys.ACTION_KEY;
     }
@@ -270,9 +259,9 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
      *
      * @param event The Generic Track Request Content {@link Event}.
      */
-    private void track(Event event) {
-        HashMap<String, String> analyticsVars = processAnalyticsVars(event);
-        HashMap<String, String> analyticsData = processAnalyticsData(event);
+    private void track(final Event event) {
+        final HashMap<String, String> analyticsVars = processAnalyticsVars(event);
+        final HashMap<String, String> analyticsData = processAnalyticsData(event);
         sendAnalyticsHit(analyticsVars, analyticsData);
     }
 
@@ -283,9 +272,9 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
      *
      * @return {@code Map<String, String>} containing the vars data
      */
-    private HashMap<String, String> processAnalyticsVars(Event event) {
-        HashMap<String, String> processedVars = new HashMap<>();
-        EventData eventData = event.getData();
+    private HashMap<String, String> processAnalyticsVars(final Event event) {
+        final HashMap<String, String> processedVars = new HashMap<>();
+        final EventData eventData = event.getData();
 
         if(eventData == null || eventData.isEmpty()) {
             return processedVars;
@@ -293,7 +282,7 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
 
         // context: pe/pev2 values should always be present in track calls if there's action regardless of state.
         // If state is present then pageName = state name else pageName = app id to prevent hit from being discarded.
-        String actionName = eventData.optString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, null);
+        final String actionName = eventData.optString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, null);
         if(!StringUtils.isNullOrEmpty(actionName)) {
             processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.IGNORE_PAGE_NAME, AnalyticsConstants.IGNORE_PAGE_NAME_VALUE);
             boolean isInternal = eventData.optBoolean(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, false);
@@ -301,7 +290,7 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
         }
         // Todo :- We currently read application id from lifecycle
         // processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.PAGE_NAME, state->GetApplicationId());
-        String stateName = eventData.optString(AnalyticsConstants.EventDataKeys.TRACK_STATE, null);
+        final String stateName = eventData.optString(AnalyticsConstants.EventDataKeys.TRACK_STATE, null);
         if(!StringUtils.isNullOrEmpty(stateName)) {
             processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.PAGE_NAME, stateName);
         }
@@ -315,7 +304,7 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
         processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.STRING_TIMESTAMP, Long.toString(event.getTimestampInSeconds()));
 
         // Todo:- GetAnalyticsIdVisitorParameters ??
-        UIService uiService = platformServices.getUIService();
+        final UIService uiService = platformServices.getUIService();
 
         if (uiService != null) {
             if (uiService.getAppState() == UIService.AppState.BACKGROUND) {
@@ -337,23 +326,23 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
      *
      * @return {@code Map<String, String>} containing the context data
      */
-    private HashMap<String, String> processAnalyticsData(Event event) {
-        HashMap<String, String> processedData = new HashMap<>();
-        EventData eventData = event.getData();
+    private HashMap<String, String> processAnalyticsData(final Event event) {
+        final HashMap<String, String> processedData = new HashMap<>();
+        final EventData eventData = event.getData();
 
         if(eventData == null || eventData.isEmpty()) {
             return processedData;
         }
 
         // Todo:- Should we append default lifecycle context data (os version, device name, device version, etc) to each hits?
-        Map<String, Object> contextData = event.getEventData();
+        final Map<String, Object> contextData = event.getEventData();
         if(!contextData.isEmpty()) {
             for (Map.Entry<String, Object> entry : contextData.entrySet()) {
                 processedData.put(entry.getKey(), entry.getValue().toString());
             }
         }
 
-        String actionName = eventData.optString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, null);
+        final String actionName = eventData.optString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, null);
         if(!StringUtils.isNullOrEmpty(actionName)) {
             boolean isInternal = eventData.optBoolean(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, false);
             processedData.put(getActionKey(isInternal), actionName);
@@ -374,9 +363,9 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
      * @param analyticsData {@code Map<String, String>} containing the analytics context data
      *
      */
-    private void sendAnalyticsHit(HashMap<String, String> analyticsVars, HashMap<String, String> analyticsData) {
-        HashMap<String, Object> legacyAnalyticsData = new HashMap<>();
-        HashMap<String, String> contextData = new HashMap<>();
+    private void sendAnalyticsHit(final HashMap<String, String> analyticsVars, final HashMap<String, String> analyticsData) {
+        final HashMap<String, Object> legacyAnalyticsData = new HashMap<>();
+        final HashMap<String, String> contextData = new HashMap<>();
 
         legacyAnalyticsData.putAll(analyticsVars);
 
@@ -388,7 +377,7 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
             for (Map.Entry<String, String> entry : analyticsData.entrySet()) {
                 String key = entry.getKey();
                 if(key.startsWith(AnalyticsConstants.VAR_ESCAPE_PREFIX)){
-                    String strippedKey = key.substring(AnalyticsConstants.VAR_ESCAPE_PREFIX.length());
+                    final String strippedKey = key.substring(AnalyticsConstants.VAR_ESCAPE_PREFIX.length());
                     legacyAnalyticsData.put(strippedKey, entry.getValue());
                 } else if(!StringUtils.isNullOrEmpty(key)){
                     contextData.put(key, entry.getValue());
@@ -399,12 +388,16 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
         legacyAnalyticsData.put(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA, contextData);
 
         // create experienceEvent and send the hit using the edge extension
-        HashMap<String, Object> edgeEventData = new HashMap<>();
-        HashMap<String, Object> xdm = new HashMap<>();
+        final HashMap<String, Object> xdm = new HashMap<>();
         xdm.put(AnalyticsConstants.XDMDataKeys.EVENTTYPE, AnalyticsConstants.ANALYTICS_XDM_EVENTTYPE);
-        Map.Entry<String, Object> edgeLegacyData = new HashMap.SimpleEntry<String, Object>(AnalyticsConstants.XDMDataKeys.ANALYTICS, legacyAnalyticsData);
+        final HashMap<String, Object> edgeEventData = new HashMap<>();
+        final HashMap<String, Object> edgeLegacyData = new HashMap<String, Object>() {
+            {
+                put(AnalyticsConstants.XDMDataKeys.ANALYTICS, legacyAnalyticsData);
+            }
+        };
         edgeEventData.put(AnalyticsConstants.XDMDataKeys.LEGACY, edgeLegacyData);
-        ExperienceEvent experienceEvent = new ExperienceEvent.Builder().setXdmSchema(xdm).setData(edgeEventData).build();
+        final ExperienceEvent experienceEvent = new ExperienceEvent.Builder().setXdmSchema(xdm).setData(edgeEventData).build();
         Edge.sendEvent(experienceEvent, null);
     }
 
