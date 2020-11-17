@@ -385,11 +385,13 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
         // It takes the provided data map and removes key-value pairs where the key is null or is prefixed with "&&"
         // The prefixed ones will be moved in the vars map
         if(!analyticsData.isEmpty()) {
-            for (Map.Entry<String, String> entry : contextData.entrySet()) {
+            for (Map.Entry<String, String> entry : analyticsData.entrySet()) {
                 String key = entry.getKey();
                 if(key.startsWith(AnalyticsConstants.VAR_ESCAPE_PREFIX)){
                     String strippedKey = key.substring(AnalyticsConstants.VAR_ESCAPE_PREFIX.length());
                     legacyAnalyticsData.put(strippedKey, entry.getValue());
+                } else if(!StringUtils.isNullOrEmpty(key)){
+                    contextData.put(key, entry.getValue());
                 }
             }
         }
@@ -402,7 +404,7 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
         xdm.put(AnalyticsConstants.XDMDataKeys.EVENTTYPE, AnalyticsConstants.ANALYTICS_XDM_EVENTTYPE);
         Map.Entry<String, Object> edgeLegacyData = new HashMap.SimpleEntry<String, Object>(AnalyticsConstants.XDMDataKeys.ANALYTICS, legacyAnalyticsData);
         edgeEventData.put(AnalyticsConstants.XDMDataKeys.LEGACY, edgeLegacyData);
-        ExperienceEvent experienceEvent = new ExperienceEvent.Builder().setXdmSchema(xdm).build();
+        ExperienceEvent experienceEvent = new ExperienceEvent.Builder().setXdmSchema(xdm).setData(edgeEventData).build();
         Edge.sendEvent(experienceEvent, null);
     }
 
