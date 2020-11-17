@@ -341,7 +341,7 @@ public class AnalyticsInternalTests {
         }
 
         // verify
-        assertEquals("UTF-8", processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.CHARSET));
+        assertEquals("UTF-8-testci", processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.CHARSET));
         assertEquals(AnalyticsConstants.TIMESTAMP_TIMEZONE_OFFSET, processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.FORMATTED_TIMESTAMP));
         assertEquals("state", processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.PAGE_NAME));
         assertEquals(AnalyticsConstants.APP_STATE_FOREGROUND, processedVars.get(AnalyticsConstants.AnalyticsRequestKeys.CUSTOMER_PERSPECTIVE));
