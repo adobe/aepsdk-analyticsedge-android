@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">AEPAnalytics Test App</string>
+    <string name="action_settings">Settings</string>
+    <!-- Strings used for fragments for navigation -->
+    <string name="first_fragment_label">First Fragment</string>
+    <string name="trackAction">Send Track Action</string>
+    <string name="trackState">Send Track State</string>
+    <string name="previous">Previous</string>
+
+    <string name="aep_analytics_main_fragment_message">AEP Analytics Test App</string>
+</resources>

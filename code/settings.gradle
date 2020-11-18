@@ -1,2 +1,2 @@
-include ':app', ':analyticsedge'
+include ':aepanalyticstestapp', ':analyticsedge'
 rootProject.name='analyticsedge-sdk'
