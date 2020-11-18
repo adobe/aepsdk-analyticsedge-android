@@ -27,6 +27,7 @@ import org.powermock.modules.junit4.PowerMockRunner;
 import org.powermock.reflect.internal.WhiteboxImpl;
 
 import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import static org.junit.Assert.*;
@@ -162,7 +163,21 @@ public class AnalyticsExtensionTests {
         PowerMockito.verifyStatic(Edge.class, times(1));
         Edge.sendEvent(argument.capture(), (EdgeCallback) eq(null));
         ExperienceEvent capturedEvent = argument.getValue();
-        assertEquals("{_legacy={analytics={ce=UTF-8, ndh=1, c={action=action, trackinternal=true, contextdata={key1=value1, key2=value2}, a.internalaction=action}, t="+AnalyticsConstants.TIMESTAMP_TIMEZONE_OFFSET+", pe=lnk_o, pev2=ADBINTERNAL:action, cp=foreground, ts="+timestamp+"}}}", capturedEvent.getData().toString());
+        Map<String, Object> xdmSchema = capturedEvent.getXdmSchema();
+        HashMap edgeEventData = (HashMap)capturedEvent.getData().get(AnalyticsConstants.XDMDataKeys.LEGACY);
+        HashMap edgeEventAnalyticsData = (HashMap)edgeEventData.get(AnalyticsConstants.XDMDataKeys.ANALYTICS);
+        HashMap edgeEventAnalyticsContextData = (HashMap)edgeEventAnalyticsData.get(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA);
+        assertEquals("legacy.analytics", xdmSchema.get(AnalyticsConstants.XDMDataKeys.EVENTTYPE));
+        assertEquals("UTF-8", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.CHARSET));
+        assertEquals(AnalyticsConstants.TIMESTAMP_TIMEZONE_OFFSET, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.FORMATTED_TIMESTAMP));
+        assertEquals("lnk_o", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.IGNORE_PAGE_NAME));
+        assertEquals("ADBINTERNAL:action", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.ACTION_NAME));
+        assertEquals("foreground", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.CUSTOMER_PERSPECTIVE));
+        assertEquals(timestamp, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.STRING_TIMESTAMP));
+        assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.TRACK_ACTION));
+        assertEquals("true", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL));
+        assertEquals("{key1=value1, key2=value2}", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.CONTEXT_DATA));
+        assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.ContextDataKeys.INTERNAL_ACTION_KEY));
     }
 
     @Test

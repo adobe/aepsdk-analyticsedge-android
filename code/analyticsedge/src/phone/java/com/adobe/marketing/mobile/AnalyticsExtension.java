@@ -107,24 +107,6 @@ public class AnalyticsExtension extends Extension implements EventsHandler {
     }
 
     /**
-     * This method queues the provided event in {@link #eventQueue}.
-     *
-     * <p>
-     * The queued events are then processed in an orderly fashion.
-     * No action is taken if the provided event's value is null.
-     *
-     * @param event The {@link Event} to be queued
-     */
-    private void queueEvent(final Event event) {
-        if (event == null) {
-            return;
-        }
-
-        eventQueue.add(event);
-        processEvents();
-    }
-
-    /**
      * Processes the queued event one by one until queue is empty.
      *
      * <p>
@@ -181,7 +163,8 @@ public class AnalyticsExtension extends Extension implements EventsHandler {
             return;
         }
 
-        queueEvent(event);
+        eventQueue.add(event);
+        processEvents();
     }
 
     /**
@@ -203,7 +186,8 @@ public class AnalyticsExtension extends Extension implements EventsHandler {
 
         if (event.getEventType() == EventType.GENERIC_TRACK) {
             Log.trace(LOG_TAG, "handleAnalyticsTrackEvent - Processing event with id %s.", event.getUniqueIdentifier());
-            queueEvent(event);
+            eventQueue.add(event);
+            processEvents();
         }
     }
 
