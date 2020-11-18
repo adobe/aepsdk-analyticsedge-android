@@ -15,14 +15,14 @@ package com.adobe.marketing.mobile;
 public interface EventsHandler {
 
     /**
-     * Processes the ConfigurationResponse for collecting privacy status information
-     * @param event Configuration response event which contains the privacy status information
+     * Handles the ConfigurationResponse event.
+     * @param event Configuration response event which contains the privacy status information.
      */
-    void processConfigurationResponse(final Event event);
+    void handleConfigurationEvent(final Event event);
 
     /**
-     * Processes the GenericTrackRequest
+     * Handles the GenericTrackRequest event.
      * @param event Generic track request event
      */
-    void handleGenericTrackEvent(final Event event);
+    void handleAnalyticsTrackEvent(final Event event);
 }

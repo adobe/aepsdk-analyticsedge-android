@@ -39,7 +39,7 @@ public final class Analytics {
             Log.warning(LOG_TAG, "Unable to register Analytics SDK since MobileCore is not initialized properly. For more details refer to https://aep-sdks.gitbook.io/docs/using-mobile-extensions/mobile-core");
         }
 
-        MobileCore.registerExtension(AnalyticsInternal.class, new ExtensionErrorCallback<ExtensionError>() {
+        MobileCore.registerExtension(AnalyticsExtension.class, new ExtensionErrorCallback<ExtensionError>() {
             @Override
             public void error(ExtensionError extensionError) {
                 Log.debug("There was an error registering the Analytics Extension: %s", extensionError.getErrorName());
@@ -72,9 +72,10 @@ public final class Analytics {
         final AdobeCallbackWithError adobeCallbackWithError = callback instanceof AdobeCallbackWithError ?
                 (AdobeCallbackWithError)callback : null;
 
-        if(adobeCallbackWithError != null){
-            adobeCallbackWithError.fail(AdobeError.CALLBACK_NULL);
-            adobeCallbackWithError.call(0l);
+        if (adobeCallbackWithError != null) {
+            adobeCallbackWithError.fail(AdobeError.UNEXPECTED_ERROR);
+        } else {
+            callback.call(0L);
         }
     }
 
@@ -95,9 +96,10 @@ public final class Analytics {
         final AdobeCallbackWithError adobeCallbackWithError = callback instanceof AdobeCallbackWithError ?
                 (AdobeCallbackWithError)callback : null;
 
-        if(adobeCallbackWithError != null){
-            adobeCallbackWithError.fail(AdobeError.CALLBACK_NULL);
-            adobeCallbackWithError.call("");
+        if (adobeCallbackWithError != null) {
+            adobeCallbackWithError.fail(AdobeError.UNEXPECTED_ERROR);
+        } else {
+            callback.call("");
         }
     }
 
@@ -116,9 +118,10 @@ public final class Analytics {
         final AdobeCallbackWithError adobeCallbackWithError = callback instanceof AdobeCallbackWithError ?
                 (AdobeCallbackWithError)callback : null;
 
-        if(adobeCallbackWithError != null){
-            adobeCallbackWithError.fail(AdobeError.CALLBACK_NULL);
-            adobeCallbackWithError.call("");
+        if (adobeCallbackWithError != null) {
+            adobeCallbackWithError.fail(AdobeError.UNEXPECTED_ERROR);
+        } else {
+            callback.call("");
         }
     }
 

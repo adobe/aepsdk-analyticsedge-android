@@ -15,7 +15,7 @@ package com.adobe.marketing.mobile;
 /**
  * Listens for {@link EventType#CONFIGURATION}, {@link EventSource#RESPONSE_CONTENT} events.
  * Monitor request content events consist of following events
- * @see AnalyticsInternal
+ * @see AnalyticsExtension
  */
 public class ConfigurationResponseContentListener extends ExtensionListener {
 
@@ -34,10 +34,9 @@ public class ConfigurationResponseContentListener extends ExtensionListener {
      * Method that gets called when {@link EventType#CONFIGURATION},
      * {@link EventSource#RESPONSE_CONTENT} event is dispatched through eventHub.
      * <p>
-     * {@link AnalyticsInternal} queues event and attempts to process them immediately.
+     * {@link AnalyticsExtension} queues event and attempts to process them immediately.
      *
      * @param event configuration response event {@link Event} to be processed
-     * @see AnalyticsInternal#processEvents()
      */
     @Override
     public void hear(final Event event) {
@@ -46,7 +45,7 @@ public class ConfigurationResponseContentListener extends ExtensionListener {
             return;
         }
 
-        final AnalyticsInternal parentExtension = (AnalyticsInternal) super.getParentExtension();
+        final AnalyticsExtension parentExtension = (AnalyticsExtension) super.getParentExtension();
 
         if (parentExtension == null) {
             Log.warning(AnalyticsConstants.LOG_TAG,
@@ -57,8 +56,7 @@ public class ConfigurationResponseContentListener extends ExtensionListener {
         parentExtension.getExecutor().execute(new Runnable() {
             @Override
             public void run() {
-                // Handle the configuration response event
-                parentExtension.processConfigurationResponse(event);
+                parentExtension.handleConfigurationEvent(event);
             }
         });
     }

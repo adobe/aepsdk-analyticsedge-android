@@ -22,13 +22,13 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class AnalyticsInternal extends Extension implements EventsHandler {
+public class AnalyticsExtension extends Extension implements EventsHandler {
 
     private ConcurrentLinkedQueue<Event> eventQueue = new ConcurrentLinkedQueue<>();
     private PlatformServices platformServices = new AndroidPlatformServices();
     private ExecutorService executorService;
     private final Object executorMutex = new Object();
-    private EventData currentConfiguration = new EventData(); // the last valid config shared state
+    private Map<String, Object> currentConfiguration = new HashMap<>(); // the last valid config shared state
 
     /**
      * Constructor.
@@ -44,7 +44,7 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
      *
      * @param extensionApi  {@link ExtensionApi} instance
      */
-    protected AnalyticsInternal(final ExtensionApi extensionApi) {
+    protected AnalyticsExtension(final ExtensionApi extensionApi) {
         super(extensionApi);
         registerEventListeners(extensionApi);
     }
@@ -115,12 +115,13 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
      *
      * @param event The {@link Event} to be queued
      */
-    void queueEvent(final Event event) {
+    private void queueEvent(final Event event) {
         if (event == null) {
             return;
         }
 
         eventQueue.add(event);
+        processEvents();
     }
 
     /**
@@ -130,12 +131,20 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
      * Suspends processing of the events in the queue if the configuration shared state is not ready.
      * Processed events are polled out of the {@link #eventQueue}.
      */
-    void processEvents() {
+    private void processEvents() {
         while (!eventQueue.isEmpty()) {
             final Event eventToProcess = eventQueue.peek();
 
             if (eventToProcess == null) {
                 Log.debug(AnalyticsConstants.LOG_TAG, "Unable to process event, Event received is null.");
+                return;
+            }
+
+            currentConfiguration = getApi().getSharedEventState(AnalyticsConstants.SharedStateKeys.CONFIGURATION,
+                    eventToProcess, null);
+
+            if (MobilePrivacyStatus.OPT_OUT.equals(getPrivacyStatus())) {
+                optOut();
                 return;
             }
 
@@ -149,7 +158,7 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
             else if (EventType.GENERIC_TRACK.getName().equalsIgnoreCase(eventToProcess.getType()) &&
                     EventSource.REQUEST_CONTENT.getName().equalsIgnoreCase(eventToProcess.getSource())) {
                 // handle the track event information from the generic track request content event
-                handleGenericTrackEvent(eventToProcess);
+                track(eventToProcess);
             }
 
             // event processed, remove it from the queue
@@ -166,25 +175,13 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
      * @param event The Configuration Response Content {@link Event} to be processed.
      */
     @Override
-    public void processConfigurationResponse(final Event event) {
+    public void handleConfigurationEvent(final Event event) {
         if (event == null) {
             Log.debug(AnalyticsConstants.LOG_TAG, "Unable to handle configuration response. Event received is null.");
             return;
         }
 
-        currentConfiguration = event.getData();
-
-        getExecutor().execute(new Runnable() {
-            @Override
-            public void run() {
-                if (MobilePrivacyStatus.OPT_OUT.equals(getPrivacyStatus())) {
-                    optOut();
-                    return;
-                }
-
-                processEvents();
-            }
-        });
+        queueEvent(event);
     }
 
     /**
@@ -193,20 +190,20 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
      * @param event The Generic Track Request Content {@link Event} to be processed.
      */
     @Override
-    public void handleGenericTrackEvent(final Event event) {
+    public void handleAnalyticsTrackEvent(final Event event) {
         if (event == null) {
-            Log.trace(LOG_TAG, "handleGenericTrackEvent - Event with id %s contained no data, ignoring.");
+            Log.trace(LOG_TAG, "handleAnalyticsTrackEvent - Event with id %s contained no data, ignoring.");
             return;
         }
 
         if (MobilePrivacyStatus.OPT_OUT.equals(getPrivacyStatus())) {
-            Log.debug(LOG_TAG, "handleGenericTrackEvent - Dropping track request, privacy is opted-out.");
+            Log.debug(LOG_TAG, "handleAnalyticsTrackEvent - Dropping track request, privacy is opted-out.");
             return;
         }
 
         if (event.getEventType() == EventType.GENERIC_TRACK) {
-            Log.trace(LOG_TAG, "handleGenericTrackEvent - Processing event with id %s.", event.getUniqueIdentifier());
-            track(event);
+            Log.trace(LOG_TAG, "handleAnalyticsTrackEvent - Processing event with id %s.", event.getUniqueIdentifier());
+            queueEvent(event);
         }
     }
 
@@ -223,10 +220,8 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
      * @return The {@link MobilePrivacyStatus} present in the configuration.
      */
     private MobilePrivacyStatus getPrivacyStatus() {
-        if(currentConfiguration != null) {
-            return MobilePrivacyStatus.fromString(currentConfiguration.optString(
-                    AnalyticsConstants.Configuration.GLOBAL_CONFIG_PRIVACY,
-                    AnalyticsConstants.DEFAULT_PRIVACY_STATUS.getValue()));
+        if(currentConfiguration != null && !currentConfiguration.isEmpty()) {
+            return MobilePrivacyStatus.fromString(currentConfiguration.get(AnalyticsConstants.Configuration.GLOBAL_CONFIG_PRIVACY).toString());
         }
         return AnalyticsConstants.DEFAULT_PRIVACY_STATUS;
     }
@@ -414,14 +409,5 @@ public class AnalyticsInternal extends Extension implements EventsHandler {
 
             return executorService;
         }
-    }
-
-    /**
-     * Getter for the {@link #eventQueue}.
-     *
-     * @return A non-null {@link ConcurrentLinkedQueue} instance
-     */
-    ConcurrentLinkedQueue<Event> getEventQueue() {
-        return eventQueue;
     }
 }

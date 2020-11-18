@@ -31,7 +31,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({ExtensionApi.class, App.class, Context.class, AnalyticsInternal.class})
+@PrepareForTest({ExtensionApi.class, App.class, Context.class, AnalyticsExtension.class})
 
 public class ConfigurationResponseContentListenerTests {
 
@@ -45,7 +45,7 @@ public class ConfigurationResponseContentListenerTests {
     @Mock
     Context context;
     @Mock
-    AnalyticsInternal mockAnalyticsInternal;
+    AnalyticsExtension mockAnalyticsExtension;
 
     @Before
     public void setup() {
@@ -56,8 +56,8 @@ public class ConfigurationResponseContentListenerTests {
     @Before
     public void beforeEach() {
         configurationResponseContentListener = new ConfigurationResponseContentListener(mockExtensionApi, EventType.CONFIGURATION.getName(), EventSource.RESPONSE_CONTENT.getName());
-        when(mockAnalyticsInternal.getExecutor()).thenReturn(executor);
-        when(mockExtensionApi.getExtension()).thenReturn(mockAnalyticsInternal);
+        when(mockAnalyticsExtension.getExecutor()).thenReturn(executor);
+        when(mockExtensionApi.getExtension()).thenReturn(mockAnalyticsExtension);
     }
 
     @Test
@@ -75,7 +75,7 @@ public class ConfigurationResponseContentListenerTests {
 
         // verify
         TestUtils.waitForExecutor(executor, EXECUTOR_TIMEOUT);
-        verify(mockAnalyticsInternal, times(1)).processConfigurationResponse(sampleEvent);
+        verify(mockAnalyticsExtension, times(1)).handleConfigurationEvent(sampleEvent);
     }
 
     @Test
@@ -85,7 +85,7 @@ public class ConfigurationResponseContentListenerTests {
 
         // verify
         TestUtils.waitForExecutor(executor, EXECUTOR_TIMEOUT);
-        verify(mockAnalyticsInternal, times(0)).processConfigurationResponse(null);
+        verify(mockAnalyticsExtension, times(0)).handleConfigurationEvent(null);
     }
 
     @Test
@@ -104,6 +104,6 @@ public class ConfigurationResponseContentListenerTests {
 
         // verify
         TestUtils.waitForExecutor(executor, EXECUTOR_TIMEOUT);
-        verify(mockAnalyticsInternal, times(0)).processConfigurationResponse(sampleEvent);
+        verify(mockAnalyticsExtension, times(0)).handleConfigurationEvent(sampleEvent);
     }
 }

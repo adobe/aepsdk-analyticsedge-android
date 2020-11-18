@@ -31,7 +31,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({ExtensionApi.class, App.class, Context.class, AnalyticsInternal.class})
+@PrepareForTest({ExtensionApi.class, App.class, Context.class, AnalyticsExtension.class, Edge.class})
 
 public class GenericTrackRequestContentListenerTests {
 
@@ -45,19 +45,20 @@ public class GenericTrackRequestContentListenerTests {
     @Mock
     Context context;
     @Mock
-    AnalyticsInternal mockAnalyticsInternal;
+    AnalyticsExtension mockAnalyticsExtension;
 
     @Before
     public void setup() {
         PowerMockito.mockStatic(App.class);
+        PowerMockito.mockStatic(Edge.class);
         Mockito.when(App.getAppContext()).thenReturn(context);
     }
 
     @Before
     public void beforeEach() {
         genericTrackRequestContentListener = new GenericTrackRequestContentListener(mockExtensionApi, EventType.GENERIC_TRACK.getName(), EventSource.REQUEST_CONTENT.getName());
-        when(mockAnalyticsInternal.getExecutor()).thenReturn(executor);
-        when(mockExtensionApi.getExtension()).thenReturn(mockAnalyticsInternal);
+        when(mockAnalyticsExtension.getExecutor()).thenReturn(executor);
+        when(mockExtensionApi.getExtension()).thenReturn(mockAnalyticsExtension);
     }
 
     @Test
@@ -73,8 +74,7 @@ public class GenericTrackRequestContentListenerTests {
 
         // verify
         TestUtils.waitForExecutor(executor, EXECUTOR_TIMEOUT);
-        verify(mockAnalyticsInternal, times(1)).queueEvent(sampleEvent);
-        verify(mockAnalyticsInternal, times(1)).processEvents();
+        verify(mockAnalyticsExtension, times(1)).handleAnalyticsTrackEvent(sampleEvent);
     }
 
     @Test
@@ -84,8 +84,7 @@ public class GenericTrackRequestContentListenerTests {
 
         // verify
         TestUtils.waitForExecutor(executor, EXECUTOR_TIMEOUT);
-        verify(mockAnalyticsInternal, times(0)).queueEvent(null);
-        verify(mockAnalyticsInternal, times(0)).processEvents();
+        verify(mockAnalyticsExtension, times(0)).handleAnalyticsTrackEvent(null);
     }
 
     @Test
@@ -102,7 +101,6 @@ public class GenericTrackRequestContentListenerTests {
 
         // verify
         TestUtils.waitForExecutor(executor, EXECUTOR_TIMEOUT);
-        verify(mockAnalyticsInternal, times(0)).queueEvent(sampleEvent);
-        verify(mockAnalyticsInternal, times(0)).processEvents();
+        verify(mockAnalyticsExtension, times(0)).handleAnalyticsTrackEvent(sampleEvent);
     }
 }

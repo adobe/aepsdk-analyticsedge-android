@@ -51,7 +51,7 @@ public class AnalyticsPublicAPITests {
 
         // The monitor extension should register with core
         PowerMockito.verifyStatic(MobileCore.class, Mockito.times(1));
-        MobileCore.registerExtension(ArgumentMatchers.eq(AnalyticsInternal.class), callbackCaptor.capture());
+        MobileCore.registerExtension(ArgumentMatchers.eq(AnalyticsExtension.class), callbackCaptor.capture());
 
         // verify the callback
         ExtensionErrorCallback extensionErrorCallback = callbackCaptor.getValue();
@@ -90,7 +90,7 @@ public class AnalyticsPublicAPITests {
         });
 
         // verify
-        assertEquals(AdobeError.CALLBACK_NULL, error[0]);
+        assertEquals(AdobeError.UNEXPECTED_ERROR, error[0]);
         assertEquals(0, queueSize[0]);
     }
 
@@ -113,8 +113,8 @@ public class AnalyticsPublicAPITests {
         });
 
         // verify
-        assertEquals(AdobeError.CALLBACK_NULL, error[0]);
-        assertEquals("", trackingId[0]);
+        assertEquals(AdobeError.UNEXPECTED_ERROR, error[0]);
+        assertEquals(null, trackingId[0]);
     }
 
     @Test
@@ -136,8 +136,8 @@ public class AnalyticsPublicAPITests {
         });
 
         // verify
-        assertEquals(AdobeError.CALLBACK_NULL, error[0]);
-        assertEquals("", visitorId[0]);
+        assertEquals(AdobeError.UNEXPECTED_ERROR, error[0]);
+        assertEquals(null, visitorId[0]);
     }
 
     @Test
