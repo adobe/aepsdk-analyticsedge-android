@@ -162,7 +162,7 @@ public class AnalyticsExtensionTests {
         PowerMockito.verifyStatic(Edge.class, times(1));
         Edge.sendEvent(argument.capture(), (EdgeCallback) eq(null));
         ExperienceEvent capturedEvent = argument.getValue();
-        assertEquals("{_legacy={analytics={ce=UTF-8, ndh=1, c={action=action, trackinternal=true, contextdata={key1=value1, key2=value2}, a.internalaction=action}, t=00/00/0000 00:00:00 0 480, pe=lnk_o, pev2=ADBINTERNAL:action, cp=foreground, ts="+timestamp+"}}}", capturedEvent.getData().toString());
+        assertEquals("{_legacy={analytics={ce=UTF-8, ndh=1, c={action=action, trackinternal=true, contextdata={key1=value1, key2=value2}, a.internalaction=action}, t="+AnalyticsConstants.TIMESTAMP_TIMEZONE_OFFSET+", pe=lnk_o, pev2=ADBINTERNAL:action, cp=foreground, ts="+timestamp+"}}}", capturedEvent.getData().toString());
     }
 
     @Test
