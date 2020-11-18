@@ -6,6 +6,17 @@ workflows:
   build-test-deploy:
     jobs:
       - build-and-test
+      - hold:
+          filters:
+            branches:
+              only:
+                - main
+          type: approval
+          requires:
+           - build-and-test
+      - publish:
+          requires:
+            - hold
 orbs:
   slack: circleci/slack@4.0.2
  
@@ -132,3 +143,14 @@ jobs:
                 }
               ]
             }
+    publish:
+    working_directory: ~/code
+    docker:
+      - image: circleci/android:api-29
+    environment:
+      JVM_OPTS: -Xmx3200m
+    steps:
+      - checkout
+      - run:
+          name: Bintray Upload
+          command: code/gradlew -p code/analyticsedge bintrayUpload -PapiKey=$bintrayAPIKey -PgpgPassphrase=$gpgPassphrase
