@@ -195,6 +195,7 @@ public class AnalyticsExtension extends Extension implements EventsHandler {
      * This method clears the event queue when privacy status is opted out.
      */
     private void optOut() {
+        Log.debug(LOG_TAG, "Privacy status is opted out, clearing event queue.");
         eventQueue.clear();
     }
 
