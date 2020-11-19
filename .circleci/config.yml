@@ -144,7 +144,7 @@ jobs:
               ]
             }
   publish:
-    working_directory: ~/code
+    working_directory: .
     docker:
       - image: circleci/android:api-29
     environment:
