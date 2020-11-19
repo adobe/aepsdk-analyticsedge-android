@@ -19,7 +19,7 @@ package com.adobe.marketing.mobile;
  * Monitor Generic Track events for sending track requests to the Experience Edge.
  * @see AnalyticsExtension
  */
-public class GenericTrackRequestContentListener extends ExtensionListener {
+class GenericTrackRequestContentListener extends ExtensionListener {
 
     GenericTrackRequestContentListener(final ExtensionApi extensionApi, final String type, final String source) {
         super(extensionApi, type, source);

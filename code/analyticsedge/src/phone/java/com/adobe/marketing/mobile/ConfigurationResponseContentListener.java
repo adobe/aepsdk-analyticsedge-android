@@ -17,7 +17,7 @@ package com.adobe.marketing.mobile;
  * Monitor request content events consist of following events
  * @see AnalyticsExtension
  */
-public class ConfigurationResponseContentListener extends ExtensionListener {
+class ConfigurationResponseContentListener extends ExtensionListener {
 
     /**
      * Constructor.

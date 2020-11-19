@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class AnalyticsExtension extends Extension implements EventsHandler {
+class AnalyticsExtension extends Extension implements EventsHandler {
 
     private ConcurrentLinkedQueue<Event> eventQueue = new ConcurrentLinkedQueue<>();
     private PlatformServices platformServices = new AndroidPlatformServices();
