@@ -264,4 +264,98 @@ public class AnalyticsExtensionTests {
         }
         assertEquals(MobilePrivacyStatus.UNKNOWN, privacyStatus);
     }
+
+    // ========================================================================================
+    // Assurance Debug Session
+    // ========================================================================================
+
+    @Test
+    public void test_analyticsContextDataShouldContainEventIdentifier() {
+        // setup
+        HashMap<String, String> contextData = new HashMap<>();
+        contextData.put("key1", "value1");
+        contextData.put("key2", "value2");
+        EventData eventData = new EventData();
+        eventData.putString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, "action");
+        eventData.putBoolean(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, true);
+        eventData.putStringMap(AnalyticsConstants.EventDataKeys.CONTEXT_DATA, contextData);
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setData(eventData).build();
+        setupPrivacyStatusInSharedState("optedin");
+        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
+
+        // Mocking Assurance shared state
+        String eventUuid = sampleEvent.getUniqueIdentifier();
+        EventData mockEventData = new EventData();
+        mockEventData.putString(AnalyticsTestConstants.EventDataKeys.SESSION_ID, "session_id");
+        Mockito.when(mockExtensionApi.getSharedEventState(AnalyticsTestConstants.SharedStateKeys.ASSURANCE, sampleEvent)).thenReturn(mockEventData);
+
+        // test
+        analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
+
+        // verify
+        ArgumentCaptor<ExperienceEvent> argument = ArgumentCaptor.forClass(ExperienceEvent.class);
+        PowerMockito.verifyStatic(Edge.class, times(1));
+        Edge.sendEvent(argument.capture(), (EdgeCallback) eq(null));
+        ExperienceEvent capturedEvent = argument.getValue();
+        Map<String, Object> xdmSchema = capturedEvent.getXdmSchema();
+        HashMap edgeEventData = (HashMap)capturedEvent.getData().get(AnalyticsConstants.XDMDataKeys.LEGACY);
+        HashMap edgeEventAnalyticsData = (HashMap)edgeEventData.get(AnalyticsConstants.XDMDataKeys.ANALYTICS);
+        HashMap edgeEventAnalyticsContextData = (HashMap)edgeEventAnalyticsData.get(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA);
+        assertEquals("legacy.analytics", xdmSchema.get(AnalyticsConstants.XDMDataKeys.EVENTTYPE));
+        assertEquals("UTF-8", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.CHARSET));
+        assertEquals(AnalyticsConstants.TIMESTAMP_TIMEZONE_OFFSET, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.FORMATTED_TIMESTAMP));
+        assertEquals("lnk_o", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.IGNORE_PAGE_NAME));
+        assertEquals("ADBINTERNAL:action", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.ACTION_NAME));
+        assertEquals("foreground", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.CUSTOMER_PERSPECTIVE));
+        assertEquals(timestamp, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.STRING_TIMESTAMP));
+        assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.TRACK_ACTION));
+        assertEquals("true", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL));
+        assertEquals("{key1=value1, key2=value2}", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.CONTEXT_DATA));
+        assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.ContextDataKeys.INTERNAL_ACTION_KEY));
+
+        // Assertion for Assurance debug session
+        assertEquals(edgeEventAnalyticsContextData.get(AnalyticsTestConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY), eventUuid);
+    }
+
+    @Test
+    public void test_analyticsContextDataShouldNotContainEventIdentifier() {
+        // setup
+        HashMap<String, String> contextData = new HashMap<>();
+        contextData.put("key1", "value1");
+        contextData.put("key2", "value2");
+        EventData eventData = new EventData();
+        eventData.putString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, "action");
+        eventData.putBoolean(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, true);
+        eventData.putStringMap(AnalyticsConstants.EventDataKeys.CONTEXT_DATA, contextData);
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setData(eventData).build();
+        setupPrivacyStatusInSharedState("optedin");
+        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
+
+        // test
+        analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
+
+        // verify
+        ArgumentCaptor<ExperienceEvent> argument = ArgumentCaptor.forClass(ExperienceEvent.class);
+        PowerMockito.verifyStatic(Edge.class, times(1));
+        Edge.sendEvent(argument.capture(), (EdgeCallback) eq(null));
+        ExperienceEvent capturedEvent = argument.getValue();
+        Map<String, Object> xdmSchema = capturedEvent.getXdmSchema();
+        HashMap edgeEventData = (HashMap)capturedEvent.getData().get(AnalyticsConstants.XDMDataKeys.LEGACY);
+        HashMap edgeEventAnalyticsData = (HashMap)edgeEventData.get(AnalyticsConstants.XDMDataKeys.ANALYTICS);
+        HashMap edgeEventAnalyticsContextData = (HashMap)edgeEventAnalyticsData.get(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA);
+        assertEquals("legacy.analytics", xdmSchema.get(AnalyticsConstants.XDMDataKeys.EVENTTYPE));
+        assertEquals("UTF-8", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.CHARSET));
+        assertEquals(AnalyticsConstants.TIMESTAMP_TIMEZONE_OFFSET, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.FORMATTED_TIMESTAMP));
+        assertEquals("lnk_o", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.IGNORE_PAGE_NAME));
+        assertEquals("ADBINTERNAL:action", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.ACTION_NAME));
+        assertEquals("foreground", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.CUSTOMER_PERSPECTIVE));
+        assertEquals(timestamp, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.STRING_TIMESTAMP));
+        assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.TRACK_ACTION));
+        assertEquals("true", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL));
+        assertEquals("{key1=value1, key2=value2}", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.CONTEXT_DATA));
+        assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.ContextDataKeys.INTERNAL_ACTION_KEY));
+
+        // Assertion for Assurance debug session
+        assertFalse(edgeEventAnalyticsContextData.containsKey(AnalyticsTestConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY));
+    }
 }
