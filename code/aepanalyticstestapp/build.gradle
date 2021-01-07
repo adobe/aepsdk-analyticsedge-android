@@ -44,6 +44,7 @@ dependencies {
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
     implementation "com.adobe.marketing.mobile:core:${rootProject.mavenCoreVersion}"
     implementation "com.adobe.marketing.mobile:identity:+"
+    implementation "com.adobe.marketing.mobile:assurance:+"
     implementation 'com.adobe.marketing.mobile:edge:1.0.0-beta-1'
     implementation project(':analyticsedge')
 }

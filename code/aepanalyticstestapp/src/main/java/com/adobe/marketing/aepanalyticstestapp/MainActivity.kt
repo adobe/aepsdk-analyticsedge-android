@@ -23,6 +23,7 @@ class MainActivity : AppCompatActivity() {
         Analytics.registerExtension()
         Identity.registerExtension()
         Edge.registerExtension()
+        Assurance.registerExtension()
 
         MobileCore.start {
             MobileCore.configureWithAppID("3805cb8645dd/315760ade17b/launch-da9fe87710a7-development")
@@ -41,6 +42,10 @@ class MainActivity : AppCompatActivity() {
         // as you specify a parent activity in AndroidManifest.xml.
         return when (item.itemId) {
             R.id.action_settings -> true
+            R.id.action_assurance -> {
+                Assurance.startSession("grifflab://default?adb_validation_sessionid=a90b7c7b-9770-4326-b225-b9d3d403d42b")
+                return true
+            }
             else -> super.onOptionsItemSelected(item)
         }
     }
