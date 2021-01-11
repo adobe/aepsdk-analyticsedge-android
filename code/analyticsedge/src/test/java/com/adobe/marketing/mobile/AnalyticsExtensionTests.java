@@ -286,8 +286,8 @@ public class AnalyticsExtensionTests {
         // Mocking Assurance shared state
         String eventUuid = sampleEvent.getUniqueIdentifier();
         EventData mockEventData = new EventData();
-        mockEventData.putString(AnalyticsTestConstants.EventDataKeys.SESSION_ID, "session_id");
-        Mockito.when(mockExtensionApi.getSharedEventState(AnalyticsTestConstants.SharedStateKeys.ASSURANCE, sampleEvent)).thenReturn(mockEventData);
+        mockEventData.putString(AnalyticsConstants.EventDataKeys.SESSION_ID, "session_id");
+        Mockito.when(mockExtensionApi.getSharedEventState(AnalyticsConstants.SharedStateKeys.ASSURANCE, sampleEvent)).thenReturn(mockEventData);
 
         // test
         analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
@@ -302,7 +302,7 @@ public class AnalyticsExtensionTests {
         HashMap edgeEventAnalyticsContextData = (HashMap)edgeEventAnalyticsData.get(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA);
 
         // Assertion for Assurance debug session
-        assertEquals(edgeEventAnalyticsContextData.get(AnalyticsTestConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY), eventUuid);
+        assertEquals(edgeEventAnalyticsContextData.get(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY), eventUuid);
     }
 
     @Test
@@ -332,6 +332,6 @@ public class AnalyticsExtensionTests {
         HashMap edgeEventAnalyticsContextData = (HashMap)edgeEventAnalyticsData.get(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA);
 
         // Assertion for Assurance debug session
-        assertFalse(edgeEventAnalyticsContextData.containsKey(AnalyticsTestConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY));
+        assertFalse(edgeEventAnalyticsContextData.containsKey(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY));
     }
 }
