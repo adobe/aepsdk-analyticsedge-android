@@ -23,9 +23,10 @@ class MainActivity : AppCompatActivity() {
         Analytics.registerExtension()
         Identity.registerExtension()
         Edge.registerExtension()
+        Assurance.registerExtension()
 
         MobileCore.start {
-            MobileCore.configureWithAppID("3805cb8645dd/315760ade17b/launch-da9fe87710a7-development")
+            MobileCore.configureWithAppID("{Your App Id}")
         }
     }
 
@@ -41,6 +42,10 @@ class MainActivity : AppCompatActivity() {
         // as you specify a parent activity in AndroidManifest.xml.
         return when (item.itemId) {
             R.id.action_settings -> true
+            R.id.action_assurance -> {
+                Assurance.startSession("{Your Assurance session URL}")
+                return true
+            }
             else -> super.onOptionsItemSelected(item)
         }
     }

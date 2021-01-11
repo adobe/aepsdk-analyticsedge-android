@@ -333,7 +333,32 @@ class AnalyticsExtension extends Extension implements EventsHandler {
             processedData.put(AnalyticsConstants.AnalyticsRequestKeys.PRIVACY_MODE, "unknown");
         }
 
+        if(isAssuranceSessionActive(event)) {
+            processedData.put(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY, event.getUniqueIdentifier());
+        }
+
         return processedData;
+    }
+
+    /**
+     * Returns true if the Assurance session is active false otherwise. Determines it by checking if the Assurance
+     * shared state contains a non null and non empty session id.
+     * @param event The {@link EventData} to be use for getting Assurance Shared state.
+     * @return a boolean, true if the Assurance session is active false otherwise.
+     */
+    private boolean isAssuranceSessionActive(final Event event) {
+        if(event == null || event.getEventData() == null) {
+            Log.debug(LOG_TAG, "isAssuranceSessionActive - event or event data is null. Returning false.");
+            return false;
+        }
+
+        final ExtensionApi extensionApi = getApi();
+        final EventData assuranceSharedState = extensionApi.getSharedEventState(AnalyticsConstants.SharedStateKeys.ASSURANCE, event);
+        if(assuranceSharedState == null) {
+            return false;
+        }
+        final String sessionId = assuranceSharedState.optString(AnalyticsConstants.EventDataKeys.SESSION_ID,"");
+        return !StringUtils.isNullOrEmpty(sessionId);
     }
 
     /**

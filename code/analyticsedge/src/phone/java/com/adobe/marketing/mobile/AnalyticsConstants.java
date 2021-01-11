@@ -36,6 +36,7 @@ final class AnalyticsConstants {
 
     static final class SharedStateKeys {
         static final String CONFIGURATION = "com.adobe.module.configuration";
+        static final String ASSURANCE = "com.adobe.assurance";
     }
 
     static final class Configuration {
@@ -77,11 +78,13 @@ final class AnalyticsConstants {
         static final String REQUEST_EVENT_IDENTIFIER = "requestEventIdentifier";
         static final String HIT_HOST = "hitHost";
         static final String HIT_URL = "hitUrl";
+        static final String SESSION_ID = "sessionid";
     }
 
     static final class ContextDataKeys {
         static final String ACTION_KEY = "a.action";
         static final String INTERNAL_ACTION_KEY = "a.internalaction";
+        static final String EVENT_IDENTIFIER_KEY = "a.DebugEventIdentifier";
     }
 
     static final class XDMDataKeys {

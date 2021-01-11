@@ -264,4 +264,74 @@ public class AnalyticsExtensionTests {
         }
         assertEquals(MobilePrivacyStatus.UNKNOWN, privacyStatus);
     }
+
+    // ========================================================================================
+    // Assurance Debug Session
+    // ========================================================================================
+
+    @Test
+    public void test_analyticsContextDataShouldContainEventIdentifier() {
+        // setup
+        HashMap<String, String> contextData = new HashMap<>();
+        contextData.put("key1", "value1");
+        contextData.put("key2", "value2");
+        EventData eventData = new EventData();
+        eventData.putString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, "action");
+        eventData.putBoolean(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, true);
+        eventData.putStringMap(AnalyticsConstants.EventDataKeys.CONTEXT_DATA, contextData);
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setData(eventData).build();
+        setupPrivacyStatusInSharedState("optedin");
+        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
+
+        // Mocking Assurance shared state
+        String eventUuid = sampleEvent.getUniqueIdentifier();
+        EventData mockEventData = new EventData();
+        mockEventData.putString(AnalyticsConstants.EventDataKeys.SESSION_ID, "session_id");
+        Mockito.when(mockExtensionApi.getSharedEventState(AnalyticsConstants.SharedStateKeys.ASSURANCE, sampleEvent)).thenReturn(mockEventData);
+
+        // test
+        analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
+
+        // verify
+        ArgumentCaptor<ExperienceEvent> argument = ArgumentCaptor.forClass(ExperienceEvent.class);
+        PowerMockito.verifyStatic(Edge.class, times(1));
+        Edge.sendEvent(argument.capture(), (EdgeCallback) eq(null));
+        ExperienceEvent capturedEvent = argument.getValue();
+        HashMap edgeEventData = (HashMap)capturedEvent.getData().get(AnalyticsConstants.XDMDataKeys.LEGACY);
+        HashMap edgeEventAnalyticsData = (HashMap)edgeEventData.get(AnalyticsConstants.XDMDataKeys.ANALYTICS);
+        HashMap edgeEventAnalyticsContextData = (HashMap)edgeEventAnalyticsData.get(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA);
+
+        // Assertion for Assurance debug session
+        assertEquals(edgeEventAnalyticsContextData.get(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY), eventUuid);
+    }
+
+    @Test
+    public void test_analyticsContextDataShouldNotContainEventIdentifier() {
+        // setup
+        HashMap<String, String> contextData = new HashMap<>();
+        contextData.put("key1", "value1");
+        contextData.put("key2", "value2");
+        EventData eventData = new EventData();
+        eventData.putString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, "action");
+        eventData.putBoolean(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, true);
+        eventData.putStringMap(AnalyticsConstants.EventDataKeys.CONTEXT_DATA, contextData);
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setData(eventData).build();
+        setupPrivacyStatusInSharedState("optedin");
+        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
+
+        // test
+        analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
+
+        // verify
+        ArgumentCaptor<ExperienceEvent> argument = ArgumentCaptor.forClass(ExperienceEvent.class);
+        PowerMockito.verifyStatic(Edge.class, times(1));
+        Edge.sendEvent(argument.capture(), (EdgeCallback) eq(null));
+        ExperienceEvent capturedEvent = argument.getValue();
+        HashMap edgeEventData = (HashMap)capturedEvent.getData().get(AnalyticsConstants.XDMDataKeys.LEGACY);
+        HashMap edgeEventAnalyticsData = (HashMap)edgeEventData.get(AnalyticsConstants.XDMDataKeys.ANALYTICS);
+        HashMap edgeEventAnalyticsContextData = (HashMap)edgeEventAnalyticsData.get(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA);
+
+        // Assertion for Assurance debug session
+        assertFalse(edgeEventAnalyticsContextData.containsKey(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY));
+    }
 }
