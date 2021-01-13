@@ -92,9 +92,12 @@ final class AnalyticsConstants {
         static final String ANALYTICS = "analytics";
         static final String EVENTTYPE = "eventType";
         static final String CONTEXT_DATA = "c";
+        static final String DATA = "data";
+        static final String XDM = "xdm";
     }
 
     static final String ANALYTICS_XDM_EVENTTYPE = "legacy.analytics";
+    static final String ANALYTICS_XDM_EVENTNAME = "Analytics Edge Request";
 
     /**
      * Retrieves a correctly-formatted timestamp string; this function returns an all 0 string except for the timezoneOffset

@@ -393,7 +393,7 @@ class AnalyticsExtension extends Extension implements EventsHandler {
         legacyAnalyticsData.put(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA, contextData);
 
         // create experienceEvent and send the hit using the edge extension
-        final HashMap<String, Object> xdm = new HashMap<>();
+        final HashMap<String, String> xdm = new HashMap<>();
         xdm.put(AnalyticsConstants.XDMDataKeys.EVENTTYPE, AnalyticsConstants.ANALYTICS_XDM_EVENTTYPE);
         final HashMap<String, Object> edgeEventData = new HashMap<>();
         final HashMap<String, Object> edgeLegacyData = new HashMap<String, Object>() {
@@ -402,8 +402,16 @@ class AnalyticsExtension extends Extension implements EventsHandler {
             }
         };
         edgeEventData.put(AnalyticsConstants.XDMDataKeys.LEGACY, edgeLegacyData);
-        final ExperienceEvent experienceEvent = new ExperienceEvent.Builder().setXdmSchema(xdm).setData(edgeEventData).build();
-        Edge.sendEvent(experienceEvent, null);
+
+        Map<String, Object> eventData = new HashMap<>();
+        eventData.put(AnalyticsConstants.XDMDataKeys.XDM, xdm);
+        eventData.put(AnalyticsConstants.XDMDataKeys.DATA, edgeEventData);
+        final Event event = new Event.Builder(
+                AnalyticsConstants.ANALYTICS_XDM_EVENTNAME,
+                EdgeConstants.EVENT_TYPE_EDGE,
+                EdgeConstants.EVENT_SOURCE_EXTENSION_REQUEST_CONTENT).setEventData(eventData).build();
+
+        MobileCore.dispatchEvent(event, null);
     }
 
     /**
