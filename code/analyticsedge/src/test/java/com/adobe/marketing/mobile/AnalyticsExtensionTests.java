@@ -286,6 +286,9 @@ public class AnalyticsExtensionTests {
 
     @Test
     public void test_analyticsContextDataShouldContainEventIdentifier() {
+        //Mocking static methods of MobileCore
+        PowerMockito.mockStatic(MobileCore.class);
+
         // setup
         HashMap<String, String> contextData = new HashMap<>();
         contextData.put("key1", "value1");
@@ -296,7 +299,6 @@ public class AnalyticsExtensionTests {
         eventData.putStringMap(AnalyticsConstants.EventDataKeys.CONTEXT_DATA, contextData);
         Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setData(eventData).build();
         setupPrivacyStatusInSharedState("optedin");
-        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
 
         // Mocking Assurance shared state
         String eventUuid = sampleEvent.getUniqueIdentifier();
@@ -308,20 +310,23 @@ public class AnalyticsExtensionTests {
         analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
 
         // verify
-        ArgumentCaptor<ExperienceEvent> argument = ArgumentCaptor.forClass(ExperienceEvent.class);
-        PowerMockito.verifyStatic(Edge.class, times(1));
-        Edge.sendEvent(argument.capture(), (EdgeCallback) eq(null));
-        ExperienceEvent capturedEvent = argument.getValue();
-        HashMap edgeEventData = (HashMap)capturedEvent.getData().get(AnalyticsConstants.XDMDataKeys.LEGACY);
-        HashMap edgeEventAnalyticsData = (HashMap)edgeEventData.get(AnalyticsConstants.XDMDataKeys.ANALYTICS);
-        HashMap edgeEventAnalyticsContextData = (HashMap)edgeEventAnalyticsData.get(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA);
-
+        ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
+        PowerMockito.verifyStatic(MobileCore.class, times(1));
+        MobileCore.dispatchEvent(argument.capture(), (ExtensionErrorCallback<ExtensionError>) eq(null));
+        Assert.assertTrue(argument.getValue() instanceof Event);
+        Event event = argument.getValue();
+        Assert.assertTrue(event.getEventData().containsKey(AnalyticsConstants.XDMDataKeys.DATA));
+        Map<String, Object> legacyData = (Map<String, Object>) ((Map<String, Object>)event.getEventData().get(AnalyticsConstants.XDMDataKeys.DATA)).get(AnalyticsConstants.XDMDataKeys.LEGACY);
         // Assertion for Assurance debug session
-        assertEquals(edgeEventAnalyticsContextData.get(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY), eventUuid);
+        String assuranceDebugId = (String) ((Map<String, Object>)((Map<String, Object>)legacyData.get(AnalyticsConstants.XDMDataKeys.ANALYTICS)).get(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA)).get(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY);
+        assertEquals(assuranceDebugId, eventUuid);
     }
 
     @Test
     public void test_analyticsContextDataShouldNotContainEventIdentifier() {
+        //Mocking static methods of MobileCore
+        PowerMockito.mockStatic(MobileCore.class);
+
         // setup
         HashMap<String, String> contextData = new HashMap<>();
         contextData.put("key1", "value1");
@@ -338,15 +343,18 @@ public class AnalyticsExtensionTests {
         analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
 
         // verify
-        ArgumentCaptor<ExperienceEvent> argument = ArgumentCaptor.forClass(ExperienceEvent.class);
-        PowerMockito.verifyStatic(Edge.class, times(1));
-        Edge.sendEvent(argument.capture(), (EdgeCallback) eq(null));
-        ExperienceEvent capturedEvent = argument.getValue();
-        HashMap edgeEventData = (HashMap)capturedEvent.getData().get(AnalyticsConstants.XDMDataKeys.LEGACY);
-        HashMap edgeEventAnalyticsData = (HashMap)edgeEventData.get(AnalyticsConstants.XDMDataKeys.ANALYTICS);
-        HashMap edgeEventAnalyticsContextData = (HashMap)edgeEventAnalyticsData.get(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA);
+        // verify
+        ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
+        PowerMockito.verifyStatic(MobileCore.class, times(1));
+        MobileCore.dispatchEvent(argument.capture(), (ExtensionErrorCallback<ExtensionError>) eq(null));
+        Assert.assertTrue(argument.getValue() instanceof Event);
+        Event event = argument.getValue();
+        Assert.assertTrue(event.getEventData().containsKey(AnalyticsConstants.XDMDataKeys.DATA));
+        Map<String, Object> legacyData = (Map<String, Object>) ((Map<String, Object>)event.getEventData().get(AnalyticsConstants.XDMDataKeys.DATA)).get(AnalyticsConstants.XDMDataKeys.LEGACY);
+        // Assertion for Assurance debug session
+        Map<String, Object> analyticsContextData = (Map<String, Object>)((Map<String, Object>)legacyData.get(AnalyticsConstants.XDMDataKeys.ANALYTICS)).get(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA);
 
         // Assertion for Assurance debug session
-        assertFalse(edgeEventAnalyticsContextData.containsKey(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY));
+        assertFalse(analyticsContextData.containsKey(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY));
     }
 }
