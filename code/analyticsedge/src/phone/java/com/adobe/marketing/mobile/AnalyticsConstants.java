@@ -49,7 +49,7 @@ final class AnalyticsConstants {
         static final String FORMATTED_TIMESTAMP = "t";
         static final String STRING_TIMESTAMP = "ts";
         static final String CONTEXT_DATA = "c";
-        static final String PAGE_NAME = "gn";
+        static final String PAGE_NAME = "pageName";
         static final String IGNORE_PAGE_NAME = "pe";
         static final String CUSTOMER_PERSPECTIVE = "cp";
         static final String ACTION_NAME = "pev2";
