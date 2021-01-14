@@ -49,7 +49,7 @@ final class AnalyticsConstants {
         static final String FORMATTED_TIMESTAMP = "t";
         static final String STRING_TIMESTAMP = "ts";
         static final String CONTEXT_DATA = "c";
-        static final String PAGE_NAME = "gn";
+        static final String PAGE_NAME = "pageName";
         static final String IGNORE_PAGE_NAME = "pe";
         static final String CUSTOMER_PERSPECTIVE = "cp";
         static final String ACTION_NAME = "pev2";
@@ -92,9 +92,12 @@ final class AnalyticsConstants {
         static final String ANALYTICS = "analytics";
         static final String EVENTTYPE = "eventType";
         static final String CONTEXT_DATA = "c";
+        static final String DATA = "data";
+        static final String XDM = "xdm";
     }
 
     static final String ANALYTICS_XDM_EVENTTYPE = "legacy.analytics";
+    static final String ANALYTICS_XDM_EVENTNAME = "Analytics Edge Request";
 
     /**
      * Retrieves a correctly-formatted timestamp string; this function returns an all 0 string except for the timezoneOffset
