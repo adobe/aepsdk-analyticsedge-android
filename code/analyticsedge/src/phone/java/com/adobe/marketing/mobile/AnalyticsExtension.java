@@ -206,7 +206,10 @@ class AnalyticsExtension extends Extension implements EventsHandler {
      */
     private MobilePrivacyStatus getPrivacyStatus() {
         if(currentConfiguration != null && !currentConfiguration.isEmpty()) {
-            return MobilePrivacyStatus.fromString(currentConfiguration.get(AnalyticsConstants.Configuration.GLOBAL_CONFIG_PRIVACY).toString());
+            final Object currentPrivacy = currentConfiguration.get(AnalyticsConstants.Configuration.GLOBAL_CONFIG_PRIVACY);
+            if(currentPrivacy != null) {
+                return MobilePrivacyStatus.fromString(currentPrivacy.toString());
+            }
         }
         return AnalyticsConstants.DEFAULT_PRIVACY_STATUS;
     }
@@ -408,8 +411,8 @@ class AnalyticsExtension extends Extension implements EventsHandler {
         eventData.put(AnalyticsConstants.XDMDataKeys.DATA, edgeEventData);
         final Event event = new Event.Builder(
                 AnalyticsConstants.ANALYTICS_XDM_EVENTNAME,
-                EdgeConstants.EVENT_TYPE_EDGE,
-                EdgeConstants.EVENT_SOURCE_EXTENSION_REQUEST_CONTENT).setEventData(eventData).build();
+                EventType.get(AnalyticsConstants.Edge.EVENT_TYPE),
+                EventSource.REQUEST_CONTENT).setEventData(eventData).build();
 
         MobileCore.dispatchEvent(event, null);
     }
