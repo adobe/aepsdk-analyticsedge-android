@@ -37,7 +37,7 @@ jobs:
           command: code/gradlew -p code/analyticsedge assemblePhoneDebug
       - run:
           name: UnitTests
-          command: code/gradlew -p code/analyticsedge platformUnitTestJacocoReport
+          command: code/gradlew -p code/unit-tests testDebugUnitTest
   # slack notification
       - slack/notify:
           channel: ${SLACK_DEFAULT_CHANNEL}
@@ -49,7 +49,7 @@ jobs:
                   "type": "header",
                   "text": {
                     "type": "plain_text",
-                    "text": "Build Failed :x:",
+                    "text": "AEPAnalyticsEdge [Android] -> Build Failed :x:",
                     "emoji": true
                   }
                 },
@@ -101,7 +101,7 @@ jobs:
                   "type": "header",
                   "text": {
                     "type": "plain_text",
-                    "text": "Build Successful :tada:",
+                    "text": "AEPAnalyticsEdge [Android] -> Build Successful :tada:",
                     "emoji": true
                   }
                 },

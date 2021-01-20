@@ -181,7 +181,7 @@ bintray {
     if (project.hasProperty("apiKey")) {
         key = "$apiKey"
     } else {
-        key = 'xxxxxxxxxxxxxxx'
+        key = "xxxxxxxxxxxxxxx"
     }
 
     String gpgpass = "xxxxxxxxxxxxxxx"
