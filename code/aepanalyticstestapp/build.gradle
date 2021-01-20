@@ -8,7 +8,7 @@ android {
 
     defaultConfig {
         applicationId "com.adobe.marketing.aepanalyticstestapp"
-        minSdkVersion 14
+        minSdkVersion 19
         targetSdkVersion 30
         versionCode 1
         versionName "1.0"
@@ -45,6 +45,6 @@ dependencies {
     implementation "com.adobe.marketing.mobile:core:${rootProject.mavenCoreVersion}"
     implementation "com.adobe.marketing.mobile:identity:+"
     implementation "com.adobe.marketing.mobile:assurance:+"
-    implementation 'com.adobe.marketing.mobile:edge:1.0.0-beta-1'
     implementation project(':analyticsedge')
+    implementation "com.adobe.marketing.mobile:edge:1.0.0"
 }
