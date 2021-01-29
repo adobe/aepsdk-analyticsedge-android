@@ -17,6 +17,7 @@ import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_VERSION;
 import static com.adobe.marketing.mobile.AnalyticsConstants.LOG_TAG;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -318,10 +319,28 @@ class AnalyticsExtension extends Extension implements EventsHandler {
         }
 
         // Todo:- Should we append default lifecycle context data (os version, device name, device version, etc) to each hits?
-        final Map<String, Object> contextData = event.getEventData();
-        if(!contextData.isEmpty()) {
-            for (Map.Entry<String, Object> entry : contextData.entrySet()) {
-                processedData.put(entry.getKey(), entry.getValue().toString());
+        final Map<String, Object> dataToProcess = event.getEventData();
+        if(!dataToProcess.isEmpty()) {
+            for (Map.Entry<String, Object> entry : dataToProcess.entrySet()) {
+                // need to handle context data maps within the event data
+                if(entry.getValue().getClass().equals(HashMap.class)){
+                    Map<String, String> contextData = (Map) entry.getValue();
+                    // convert each context data key value pair to a string
+                    StringBuilder contextDataString = new StringBuilder("{");
+                    Iterator iterator = contextData.entrySet().iterator();
+                    while(iterator.hasNext()){
+                        Map.Entry<String, String> currentEntry = (Map.Entry<String, String>) iterator.next();
+                        contextDataString.append(currentEntry.getKey()).append(":").append(currentEntry.getValue());
+                        if(iterator.hasNext()){
+                            contextDataString.append(",");
+                        }
+                    }
+                    contextDataString.append("}");
+                    processedData.put(entry.getKey(), contextDataString.toString());
+                    break;
+                } else {
+                    processedData.put(entry.getKey(), entry.getValue().toString());
+                }
             }
         }
 

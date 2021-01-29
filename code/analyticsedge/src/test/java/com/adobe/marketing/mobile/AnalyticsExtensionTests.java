@@ -191,7 +191,7 @@ public class AnalyticsExtensionTests {
         assertEquals(timestamp, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.STRING_TIMESTAMP));
         assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.TRACK_ACTION));
         assertEquals("true", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL));
-        assertEquals("{key1=value1, key2=value2}", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.CONTEXT_DATA));
+        assertEquals("{key1:value1,key2:value2}", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.CONTEXT_DATA));
         assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.ContextDataKeys.INTERNAL_ACTION_KEY));
     }
 
@@ -282,7 +282,7 @@ public class AnalyticsExtensionTests {
         assertEquals(timestamp, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.STRING_TIMESTAMP));
         assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.TRACK_ACTION));
         assertEquals("true", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL));
-        assertEquals("{key1=value1, key2=value2}", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.CONTEXT_DATA));
+        assertEquals("{key1:value1,key2:value2}", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.CONTEXT_DATA));
         assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.ContextDataKeys.INTERNAL_ACTION_KEY));
     }
 
