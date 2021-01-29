@@ -311,8 +311,14 @@ class AnalyticsExtension extends Extension implements EventsHandler {
      * @return {@code Map<String, String>} containing the context data
      */
     private HashMap<String, String> processAnalyticsData(final Event event) {
-        final Map<String, Object> contextData = (Map<String,Object>) event.getEventData().get(AnalyticsConstants.EventDataKeys.CONTEXT_DATA);
         final HashMap<String, String> processedContextData = new HashMap<>();
+        final EventData eventData = event.getData();
+
+        if(eventData == null || eventData.isEmpty()) {
+            return processedContextData;
+        }
+
+        final Map<String, Object> contextData = (Map<String,Object>) event.getEventData().get(AnalyticsConstants.EventDataKeys.CONTEXT_DATA);
 
         // Todo:- Should we append default lifecycle context data (os version, device name, device version, etc) to each hits?
         if(!contextData.isEmpty()) {
@@ -323,9 +329,9 @@ class AnalyticsExtension extends Extension implements EventsHandler {
             }
         }
 
-        final String actionName = event.getData().optString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, null);
+        final String actionName = eventData.optString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, null);
         if(!StringUtils.isNullOrEmpty(actionName)) {
-            boolean isInternal = event.getData().optBoolean(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, false);
+            boolean isInternal = eventData.optBoolean(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, false);
             processedContextData.put(getActionKey(isInternal), actionName);
         }
 
