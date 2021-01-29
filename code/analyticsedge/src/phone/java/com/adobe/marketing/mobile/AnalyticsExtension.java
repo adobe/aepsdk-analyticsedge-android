@@ -311,55 +311,34 @@ class AnalyticsExtension extends Extension implements EventsHandler {
      * @return {@code Map<String, String>} containing the context data
      */
     private HashMap<String, String> processAnalyticsData(final Event event) {
-        final HashMap<String, String> processedData = new HashMap<>();
-        final EventData eventData = event.getData();
-
-        if(eventData == null || eventData.isEmpty()) {
-            return processedData;
-        }
+        final Map<String, Object> contextData = (Map<String,Object>) event.getEventData().get(AnalyticsConstants.EventDataKeys.CONTEXT_DATA);
+        final HashMap<String, String> processedContextData = new HashMap<>();
 
         // Todo:- Should we append default lifecycle context data (os version, device name, device version, etc) to each hits?
-        final Map<String, Object> dataToProcess = event.getEventData();
-        if(!dataToProcess.isEmpty()) {
-            for (Map.Entry<String, Object> entry : dataToProcess.entrySet()) {
-                // need to handle context data maps within the event data
-                if(entry.getValue().getClass().equals(HashMap.class)){
-                    Map<String, String> contextData = (Map) entry.getValue();
-                    // convert each context data key value pair to a string
-                    StringBuilder contextDataString = new StringBuilder("{");
-                    Iterator iterator = contextData.entrySet().iterator();
-                    while(iterator.hasNext()){
-                        Map.Entry<String, String> currentEntry = (Map.Entry<String, String>) iterator.next();
-                        contextDataString.append(currentEntry.getKey()).append(":").append(currentEntry.getValue());
-                        if(iterator.hasNext()){
-                            contextDataString.append(",");
-                        }
-                    }
-                    contextDataString.append("}");
-                    processedData.put(entry.getKey(), contextDataString.toString());
-                    break;
-                } else {
-                    processedData.put(entry.getKey(), entry.getValue().toString());
-                }
+        if(!contextData.isEmpty()) {
+            Iterator iterator = contextData.entrySet().iterator();
+            while(iterator.hasNext()){
+                Map.Entry<String, String> currentEntry = (Map.Entry<String, String>) iterator.next();
+                processedContextData.put(currentEntry.getKey(), currentEntry.getValue());
             }
         }
 
-        final String actionName = eventData.optString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, null);
+        final String actionName = event.getData().optString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, null);
         if(!StringUtils.isNullOrEmpty(actionName)) {
-            boolean isInternal = eventData.optBoolean(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, false);
-            processedData.put(getActionKey(isInternal), actionName);
+            boolean isInternal = event.getData().optBoolean(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, false);
+            processedContextData.put(getActionKey(isInternal), actionName);
         }
 
         // Todo :- Is TimeSinceLaunch" param is required? If so, calculate by listening to lifecycle shared state update
         if(getPrivacyStatus() == MobilePrivacyStatus.UNKNOWN) {
-            processedData.put(AnalyticsConstants.AnalyticsRequestKeys.PRIVACY_MODE, "unknown");
+            processedContextData.put(AnalyticsConstants.AnalyticsRequestKeys.PRIVACY_MODE, "unknown");
         }
 
         if(isAssuranceSessionActive(event)) {
-            processedData.put(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY, event.getUniqueIdentifier());
+            processedContextData.put(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY, event.getUniqueIdentifier());
         }
 
-        return processedData;
+        return processedContextData;
     }
 
     /**
