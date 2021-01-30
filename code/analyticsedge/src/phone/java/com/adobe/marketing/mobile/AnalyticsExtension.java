@@ -321,7 +321,7 @@ class AnalyticsExtension extends Extension implements EventsHandler {
         final Map<String, Object> contextData = (Map<String,Object>) event.getEventData().get(AnalyticsConstants.EventDataKeys.CONTEXT_DATA);
 
         // Todo:- Should we append default lifecycle context data (os version, device name, device version, etc) to each hits?
-        if(!contextData.isEmpty()) {
+        if(contextData != null && !contextData.isEmpty()) {
             Iterator iterator = contextData.entrySet().iterator();
             while(iterator.hasNext()){
                 Map.Entry<String, String> currentEntry = (Map.Entry<String, String>) iterator.next();
