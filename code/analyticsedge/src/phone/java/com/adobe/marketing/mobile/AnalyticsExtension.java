@@ -17,6 +17,7 @@ import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_VERSION;
 import static com.adobe.marketing.mobile.AnalyticsConstants.LOG_TAG;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -310,37 +311,40 @@ class AnalyticsExtension extends Extension implements EventsHandler {
      * @return {@code Map<String, String>} containing the context data
      */
     private HashMap<String, String> processAnalyticsData(final Event event) {
-        final HashMap<String, String> processedData = new HashMap<>();
+        final HashMap<String, String> processedContextData = new HashMap<>();
         final EventData eventData = event.getData();
 
         if(eventData == null || eventData.isEmpty()) {
-            return processedData;
+            return processedContextData;
         }
 
+        final Map<String, Object> contextData = (Map<String,Object>) event.getEventData().get(AnalyticsConstants.EventDataKeys.CONTEXT_DATA);
+
         // Todo:- Should we append default lifecycle context data (os version, device name, device version, etc) to each hits?
-        final Map<String, Object> contextData = event.getEventData();
-        if(!contextData.isEmpty()) {
-            for (Map.Entry<String, Object> entry : contextData.entrySet()) {
-                processedData.put(entry.getKey(), entry.getValue().toString());
+        if(contextData != null && !contextData.isEmpty()) {
+            Iterator iterator = contextData.entrySet().iterator();
+            while(iterator.hasNext()){
+                Map.Entry<String, String> currentEntry = (Map.Entry<String, String>) iterator.next();
+                processedContextData.put(currentEntry.getKey(), currentEntry.getValue());
             }
         }
 
         final String actionName = eventData.optString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, null);
         if(!StringUtils.isNullOrEmpty(actionName)) {
             boolean isInternal = eventData.optBoolean(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, false);
-            processedData.put(getActionKey(isInternal), actionName);
+            processedContextData.put(getActionKey(isInternal), actionName);
         }
 
         // Todo :- Is TimeSinceLaunch" param is required? If so, calculate by listening to lifecycle shared state update
         if(getPrivacyStatus() == MobilePrivacyStatus.UNKNOWN) {
-            processedData.put(AnalyticsConstants.AnalyticsRequestKeys.PRIVACY_MODE, "unknown");
+            processedContextData.put(AnalyticsConstants.AnalyticsRequestKeys.PRIVACY_MODE, "unknown");
         }
 
         if(isAssuranceSessionActive(event)) {
-            processedData.put(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY, event.getUniqueIdentifier());
+            processedContextData.put(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY, event.getUniqueIdentifier());
         }
 
-        return processedData;
+        return processedContextData;
     }
 
     /**
