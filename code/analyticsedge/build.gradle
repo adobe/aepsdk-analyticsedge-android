@@ -1,3 +1,8 @@
+plugins {
+    id "jacoco"
+    id "org.sonarqube" version "2.7.1"
+}
+
 apply plugin: 'com.android.library'
 apply plugin: "jacoco"
 apply plugin: "com.jfrog.bintray"
@@ -229,7 +234,7 @@ task platformUnitTestJacocoReport(type: JacocoReport, dependsOn: "testPhoneDebug
     executionData "$buildDir/jacoco/testPhoneDebugUnitTest.exec"
 
     reports {
-        xml.enabled false
+        xml.enabled true
         csv.enabled false
         html.enabled true
     }
