@@ -26,10 +26,11 @@ import java.util.concurrent.Executors;
 class AnalyticsExtension extends Extension implements EventsHandler {
 
     private ConcurrentLinkedQueue<Event> eventQueue = new ConcurrentLinkedQueue<>();
-    private PlatformServices platformServices = new AndroidPlatformServices();
+    private PlatformServices platformServices;
     private ExecutorService executorService;
     private final Object executorMutex = new Object();
     private Map<String, Object> currentConfiguration = new HashMap<>(); // the last valid config shared state
+    private SystemInfoService systemInfoService;
 
     /**
      * Constructor.
@@ -48,6 +49,21 @@ class AnalyticsExtension extends Extension implements EventsHandler {
     protected AnalyticsExtension(final ExtensionApi extensionApi) {
         super(extensionApi);
         registerEventListeners(extensionApi);
+        platformServices = new AndroidPlatformServices();
+        systemInfoService = platformServices.getSystemInfoService();
+    }
+
+    /**
+     * Constructor for testing purposes.
+     *
+     * @param extensionApi  {@link ExtensionApi} instance
+     * @param systemInfoService the mocked {@link SystemInfoService} instance
+     */
+    AnalyticsExtension(final ExtensionApi extensionApi, final SystemInfoService systemInfoService) {
+        super(extensionApi);
+        registerEventListeners(extensionApi);
+        platformServices = new AndroidPlatformServices();
+        this.systemInfoService = systemInfoService;
     }
 
     /**
@@ -102,6 +118,7 @@ class AnalyticsExtension extends Extension implements EventsHandler {
     private void registerEventListeners(final ExtensionApi extensionApi) {
         extensionApi.registerListener(EventType.CONFIGURATION, EventSource.RESPONSE_CONTENT, ConfigurationResponseContentListener.class);
         extensionApi.registerListener(EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT, GenericTrackRequestContentListener.class);
+        extensionApi.registerListener(EventType.RULES_ENGINE, EventSource.RESPONSE_CONTENT, RulesEngineResponseContentListener.class);
 
         Log.debug(AnalyticsConstants.LOG_TAG, "Registering Analytics extension - version %s",
                 AnalyticsConstants.EXTENSION_VERSION);
@@ -131,6 +148,8 @@ class AnalyticsExtension extends Extension implements EventsHandler {
                 return;
             }
 
+            final Map<String, Object> eventData = eventToProcess.getData().toObjectMap();
+
             // NOTE: configuration is mandatory to process an event, so if shared state is null (pending) stop processing events
             if (currentConfiguration == null) {
                 Log.warning(AnalyticsConstants.LOG_TAG,
@@ -141,7 +160,11 @@ class AnalyticsExtension extends Extension implements EventsHandler {
             else if (EventType.GENERIC_TRACK.getName().equalsIgnoreCase(eventToProcess.getType()) &&
                     EventSource.REQUEST_CONTENT.getName().equalsIgnoreCase(eventToProcess.getSource())) {
                 // handle the track event information from the generic track request content event
-                track(eventToProcess);
+                track(eventToProcess, eventData);
+            }
+
+            else if (EventType.RULES_ENGINE.getName().equalsIgnoreCase(eventToProcess.getType())) {
+                processRulesEngineResponseEvent(eventToProcess, eventData);
             }
 
             // event processed, remove it from the queue
@@ -150,7 +173,7 @@ class AnalyticsExtension extends Extension implements EventsHandler {
     }
 
     /**
-     * Processes the passed in Configuration Response Content event.
+     * Adds the Rules Configuration Response Content event to the event queue to be processed.
      *
      * <p>
      * Any events in the event queue will be cleared if the privacy status is opted out.
@@ -169,7 +192,7 @@ class AnalyticsExtension extends Extension implements EventsHandler {
     }
 
     /**
-     * Processes the passed in Generic Track Request Content event.
+     * Adds the Generic Track Request Content event to the event queue to be processed.
      *
      * @param event The Generic Track Request Content {@link Event} to be processed.
      */
@@ -190,6 +213,65 @@ class AnalyticsExtension extends Extension implements EventsHandler {
             eventQueue.add(event);
             processEvents();
         }
+    }
+
+    /**
+     * Adds the Rules Engine Response Content event to the event queue to be processed.
+     *
+     * <p>
+     * Any events in the event queue will be cleared if the privacy status is opted out.
+     *
+     * @param event The Rules Engine Response Content {@link Event} to be processed.
+     */
+    @Override
+    public void handleRulesEngineEvent(final Event event) {
+        if (event == null) {
+            Log.debug(AnalyticsConstants.LOG_TAG, "Unable to handle rules engine response. Event received is null.");
+            return;
+        }
+
+        eventQueue.add(event);
+        processEvents();
+    }
+
+    /**
+     * Processes the passed in Rules Engine Response Content event.
+     *
+     * @param event The Rules Engine Response Content {@link Event} to be processed.
+     * @param data Track data for processing
+     */
+    private void processRulesEngineResponseEvent(final Event event, final Map<String, Object> data) {
+        if(data == null || data.isEmpty()) {
+            Log.trace(LOG_TAG, "processRulesEngineResponseEvent - Event with id %s contained no data, ignoring.", event.getUniqueIdentifier());
+            return;
+        }
+
+        Log.trace(LOG_TAG, "processRulesEngineResponseEvent - Processing event with id %s.", event.getUniqueIdentifier());
+
+        final Map<String,Object> consequence = (Map<String,Object>) data.get(AnalyticsConstants.EventDataKeys.TRIGGERED_CONSEQUENCE);
+        if(consequence == null || consequence.isEmpty()) {
+            Log.trace(LOG_TAG, "processRulesEngineResponseEvent - Ignoring as missing consequence data in event with id %s.", event.getUniqueIdentifier());
+            return;
+        }
+
+        final String consequenceType = (String) consequence.get(AnalyticsConstants.EventDataKeys.TYPE);
+        if(consequenceType != AnalyticsConstants.ConsequenceTypes.TRACK) {
+            Log.trace(LOG_TAG, "processRulesEngineResponseEvent - Ignoring as consequence type is not analytics in event with id %s.", event.getUniqueIdentifier());
+            return;
+        }
+
+        final String consequenceId = (String) consequence.get(AnalyticsConstants.EventDataKeys.ID);
+        if(StringUtils.isNullOrEmpty(consequenceId)) {
+            Log.trace(LOG_TAG, "processRulesEngineResponseEvent - Ignoring as consequence id is missing in event with id %s.", event.getUniqueIdentifier());
+            return;
+        }
+
+        Map<String, Object> consequenceDetail = new HashMap<>();
+        if(consequence.get(AnalyticsConstants.EventDataKeys.DETAIL) != null) {
+            consequenceDetail = (Map<String, Object>) consequence.get(AnalyticsConstants.EventDataKeys.DETAIL);
+        }
+
+        track(event, consequenceDetail);
     }
 
     /**
@@ -234,18 +316,25 @@ class AnalyticsExtension extends Extension implements EventsHandler {
      * @return The action key {@link String} corresponding to the type of track request.
      */
     private String getActionKey(final boolean isInternalAction) {
-        return isInternalAction ? AnalyticsConstants.ContextDataKeys.INTERNAL_ACTION_KEY :
-                AnalyticsConstants.ContextDataKeys.ACTION_KEY;
+        return isInternalAction ? AnalyticsConstants.ContextDataKeys.INTERNAL_ACTION :
+                AnalyticsConstants.ContextDataKeys.ACTION;
     }
 
     /**
      * This prepares the analytics variables and analytics data from the passed in event.
      *
-     * @param event The Generic Track Request Content {@link Event}.
+     * @param event An event containing track data for processing
+     * @param data Track data for processing
      */
-    private void track(final Event event) {
-        final HashMap<String, String> analyticsVars = processAnalyticsVars(event);
-        final HashMap<String, String> analyticsData = processAnalyticsData(event);
+    private void track(final Event event, final Map<String, Object> data) {
+        if(!(data.containsKey(AnalyticsConstants.EventDataKeys.TRACK_STATE) ||
+                data.containsKey(AnalyticsConstants.EventDataKeys.TRACK_ACTION) ||
+                data.containsKey(AnalyticsConstants.EventDataKeys.CONTEXT_DATA))) {
+            Log.warning(LOG_TAG, "track - Dropping request as event data is missing state, action or contextData");
+            return;
+        }
+        final HashMap<String, String> analyticsVars = processAnalyticsVars(event, data);
+        final HashMap<String, String> analyticsData = processAnalyticsData(event, data);
         sendAnalyticsHit(analyticsVars, analyticsData);
     }
 
@@ -253,28 +342,27 @@ class AnalyticsExtension extends Extension implements EventsHandler {
      * This method converts the event's event data into analytics variables.
      *
      * @param event The Generic Track Request Content {@link Event}.
+     * @param data Track data for processing
      *
      * @return {@code Map<String, String>} containing the vars data
      */
-    private HashMap<String, String> processAnalyticsVars(final Event event) {
+    private HashMap<String, String> processAnalyticsVars(final Event event, final Map<String, Object> data) {
         final HashMap<String, String> processedVars = new HashMap<>();
-        final EventData eventData = event.getData();
-
-        if(eventData == null || eventData.isEmpty()) {
-            return processedVars;
-        }
-
-        // context: pe/pev2 values should always be present in track calls if there's action regardless of state.
+        // Context: pe/pev2 values should always be present in track calls if there's action regardless of state.
         // If state is present then pageName = state name else pageName = app id to prevent hit from being discarded.
-        final String actionName = eventData.optString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, null);
+        final String actionName = (String) data.get(AnalyticsConstants.EventDataKeys.TRACK_ACTION);
         if(!StringUtils.isNullOrEmpty(actionName)) {
             processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.IGNORE_PAGE_NAME, AnalyticsConstants.IGNORE_PAGE_NAME_VALUE);
-            boolean isInternal = eventData.optBoolean(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, false);
+            boolean isInternal = false;
+            if(data.get(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL) != null) {
+                isInternal = (boolean) data.get(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL);
+            }
             processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.ACTION_NAME, getActionPrefix(isInternal) + actionName);
         }
-        // Todo :- We currently read application id from lifecycle
-        // processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.PAGE_NAME, state->GetApplicationId());
-        final String stateName = eventData.optString(AnalyticsConstants.EventDataKeys.TRACK_STATE, null);
+
+        processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.PAGE_NAME, getApplicationIdentifier());
+
+        final String stateName = (String) data.get(AnalyticsConstants.EventDataKeys.TRACK_STATE);
         if(!StringUtils.isNullOrEmpty(stateName)) {
             processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.PAGE_NAME, stateName);
         }
@@ -287,7 +375,6 @@ class AnalyticsExtension extends Extension implements EventsHandler {
         // Set timestamp for all requests.
         processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.STRING_TIMESTAMP, Long.toString(event.getTimestampInSeconds()));
 
-        // Todo:- GetAnalyticsIdVisitorParameters ??
         final UIService uiService = platformServices.getUIService();
 
         if (uiService != null) {
@@ -307,20 +394,14 @@ class AnalyticsExtension extends Extension implements EventsHandler {
      * This method converts the event's event data into analytics variables.
      *
      * @param event The Generic Track Request Content {@link Event}.
+     * @param data Track data for processing
      *
      * @return {@code Map<String, String>} containing the context data
      */
-    private HashMap<String, String> processAnalyticsData(final Event event) {
+    private HashMap<String, String> processAnalyticsData(final Event event, final Map<String, Object> data) {
         final HashMap<String, String> processedContextData = new HashMap<>();
-        final EventData eventData = event.getData();
 
-        if(eventData == null || eventData.isEmpty()) {
-            return processedContextData;
-        }
-
-        final Map<String, Object> contextData = (Map<String,Object>) event.getEventData().get(AnalyticsConstants.EventDataKeys.CONTEXT_DATA);
-
-        // Todo:- Should we append default lifecycle context data (os version, device name, device version, etc) to each hits?
+        final Map<String, String> contextData = (Map<String, String>) data.get(AnalyticsConstants.EventDataKeys.CONTEXT_DATA);
         if(contextData != null && !contextData.isEmpty()) {
             Iterator iterator = contextData.entrySet().iterator();
             while(iterator.hasNext()){
@@ -329,19 +410,21 @@ class AnalyticsExtension extends Extension implements EventsHandler {
             }
         }
 
-        final String actionName = eventData.optString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, null);
+        final String actionName = (String) data.get(AnalyticsConstants.EventDataKeys.TRACK_ACTION);
         if(!StringUtils.isNullOrEmpty(actionName)) {
-            boolean isInternal = eventData.optBoolean(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, false);
+            boolean isInternal = false;
+            if(data.get(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL) != null) {
+                isInternal = (boolean) data.get(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL);
+            }
             processedContextData.put(getActionKey(isInternal), actionName);
         }
 
-        // Todo :- Is TimeSinceLaunch" param is required? If so, calculate by listening to lifecycle shared state update
         if(getPrivacyStatus() == MobilePrivacyStatus.UNKNOWN) {
             processedContextData.put(AnalyticsConstants.AnalyticsRequestKeys.PRIVACY_MODE, "unknown");
         }
 
         if(isAssuranceSessionActive(event)) {
-            processedContextData.put(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY, event.getUniqueIdentifier());
+            processedContextData.put(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER, event.getUniqueIdentifier());
         }
 
         return processedContextData;
@@ -434,5 +517,19 @@ class AnalyticsExtension extends Extension implements EventsHandler {
 
             return executorService;
         }
+    }
+
+    /**
+     * Getter for the {@link #executorService}. Access to which is mutex protected.
+     *
+     * @return A String containing a build application identifier
+     */
+    private String getApplicationIdentifier() {
+        final String applicationName =  systemInfoService.getApplicationName();
+        final String applicationVersion = systemInfoService.getApplicationVersion();
+        final String applicationBuildNumber = systemInfoService.getApplicationVersionCode();
+        // Make sure that the formatted identifier removes white space if any of the values are empty, and remove the () version wrapper if version is empty as well
+        final StringBuilder applicationIdentifierStringBuilder = new StringBuilder().append(applicationName).append(applicationVersion).append(applicationBuildNumber);
+        return applicationIdentifierStringBuilder.toString().replaceAll("  ", " ").replaceAll("()", "").trim();
     }
 }

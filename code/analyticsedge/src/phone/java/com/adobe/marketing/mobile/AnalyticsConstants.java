@@ -83,12 +83,20 @@ final class AnalyticsConstants {
         static final String HIT_HOST = "hitHost";
         static final String HIT_URL = "hitUrl";
         static final String SESSION_ID = "sessionid";
+        static final String TRIGGERED_CONSEQUENCE = "triggeredconsequence";
+        static final String ID = "id";
+        static final String DETAIL = "detail";
+        static final String TYPE = "type";
+    }
+
+    static final class ConsequenceTypes {
+        static final String TRACK = "an";
     }
 
     static final class ContextDataKeys {
-        static final String ACTION_KEY = "a.action";
-        static final String INTERNAL_ACTION_KEY = "a.internalaction";
-        static final String EVENT_IDENTIFIER_KEY = "a.DebugEventIdentifier";
+        static final String ACTION = "a.action";
+        static final String INTERNAL_ACTION = "a.internalaction";
+        static final String EVENT_IDENTIFIER = "a.DebugEventIdentifier";
     }
 
     static final class XDMDataKeys {

@@ -1,5 +1,5 @@
 /*
-  Copyright 2020 Adobe. All rights reserved.
+  Copyright 2021 Adobe. All rights reserved.
   This file is licensed to you under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License. You may obtain a copy
   of the License at http://www.apache.org/licenses/LICENSE-2.0
@@ -13,11 +13,11 @@
 package com.adobe.marketing.mobile;
 
 /**
- * Listens for {@link EventType#CONFIGURATION}, {@link EventSource#RESPONSE_CONTENT} events.
- * Monitor Configuration events to determine the current privacy status.
+ * Listens for {@link EventType#RULES_ENGINE}, {@link EventSource#RESPONSE_CONTENT} events.
+ * Monitor Rules Engine events containing an Analytics rule action.
  * @see AnalyticsExtension
  */
-class ConfigurationResponseContentListener extends ExtensionListener {
+class RulesEngineResponseContentListener extends ExtensionListener {
 
     /**
      * Constructor.
@@ -26,17 +26,17 @@ class ConfigurationResponseContentListener extends ExtensionListener {
      * @param type  {@link EventType} this listener is registered to handle
      * @param source {@link EventSource} this listener is registered to handle
      */
-    ConfigurationResponseContentListener(final ExtensionApi extensionApi, final String type, final String source) {
+    RulesEngineResponseContentListener(final ExtensionApi extensionApi, final String type, final String source) {
         super(extensionApi, type, source);
     }
 
     /**
-     * Method that gets called when {@link EventType#CONFIGURATION},
+     * Method that gets called when {@link EventType#RULES_ENGINE},
      * {@link EventSource#RESPONSE_CONTENT} event is dispatched through eventHub.
      * <p>
      * {@link AnalyticsExtension} queues event and attempts to process them immediately.
      *
-     * @param event configuration response event {@link Event} to be processed
+     * @param event rules engine response event {@link Event} to be processed
      */
     @Override
     public void hear(final Event event) {
@@ -49,14 +49,14 @@ class ConfigurationResponseContentListener extends ExtensionListener {
 
         if (parentExtension == null) {
             Log.warning(AnalyticsConstants.LOG_TAG,
-                    "The parent extension, associated with the ConfigurationResponseContentListener is null, ignoring the configuration response event.");
+                    "The parent extension, associated with the RulesEngineResponseContentListener is null, ignoring the rules engine response event.");
             return;
         }
 
         parentExtension.getExecutor().execute(new Runnable() {
             @Override
             public void run() {
-                parentExtension.handleConfigurationEvent(event);
+                parentExtension.handleRulesEngineEvent(event);
             }
         });
     }
