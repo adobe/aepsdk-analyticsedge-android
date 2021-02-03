@@ -209,7 +209,7 @@ class AnalyticsExtension extends Extension implements EventsHandler {
             Log.debug(LOG_TAG, "optout - can't remove data store values. Platformservice is null.");
             return;
         }
-        LocalStorageService.DataStore dataStore = platformServices.getLocalStorageService().getDataStore(AnalyticsConstants.DataStoreKeys.ANALYTICS_DATA_STORAGE);
+        final LocalStorageService.DataStore dataStore = platformServices.getLocalStorageService().getDataStore(AnalyticsConstants.DataStoreKeys.ANALYTICS_DATA_STORAGE);
         if (dataStore != null) {
             dataStore.remove(AnalyticsConstants.DataStoreKeys.AID_KEY);
             dataStore.remove(AnalyticsConstants.DataStoreKeys.VID_KEY);

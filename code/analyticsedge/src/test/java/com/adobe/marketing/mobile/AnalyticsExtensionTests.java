@@ -22,6 +22,8 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.internal.verification.VerificationDataImpl;
+import org.mockito.internal.verification.api.VerificationData;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
@@ -555,4 +557,29 @@ public class AnalyticsExtensionTests {
         Assert.assertNull(actualVid);
 
     }
+
+    // =================================================================================================
+    // Test AID/VID is cleared from Local storage on opt out.
+    // =================================================================================================
+
+    @Test
+    public void testAIDAndVIDGetClearedOnOptOut() {
+
+        //setup
+        analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
+        Mockito.when(platformServices.getLocalStorageService()).thenReturn(localStorageService);
+        Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DataStoreKeys.ANALYTICS_DATA_STORAGE)).thenReturn(dataStore);
+
+        setupPrivacyStatusInSharedState(MobilePrivacyStatus.OPT_OUT.getValue());
+
+        //Action
+        Event event = new Event.Builder("Configuration", EventType.CONFIGURATION, EventSource.RESPONSE_CONTENT).build();
+        analyticsExtension.handleConfigurationEvent(event);
+
+        //Assertion
+        Mockito.verify(dataStore, times(1)).remove(AnalyticsConstants.DataStoreKeys.AID_KEY);
+        Mockito.verify(dataStore, times(1)).remove(AnalyticsConstants.DataStoreKeys.VID_KEY);
+
+    }
+
 }
