@@ -49,7 +49,8 @@ import static org.mockito.Mockito.when;
 public class AnalyticsExtensionTests {
 
     private AnalyticsExtension analyticsExtension;
-    private FakeSystemInfoService fakeSystemInfoService;
+    private AndroidPlatformServices platformServices;
+    private UIService uiService;
 
     // Mocks
     @Mock
@@ -58,6 +59,10 @@ public class AnalyticsExtensionTests {
     ExtensionUnexpectedError mockExtensionUnexpectedError;
     @Mock
     Context context;
+    @Mock
+    PlatformServices mockPlatformServices;
+    @Mock
+    SystemInfoService mockSystemInfoService;
 
     @Before
     public void setup() {
@@ -65,11 +70,18 @@ public class AnalyticsExtensionTests {
         PowerMockito.mockStatic(ExperienceEvent.class);
         PowerMockito.mockStatic(App.class);
         Mockito.when(App.getAppContext()).thenReturn(context);
-        fakeSystemInfoService = new FakeSystemInfoService();
-        fakeSystemInfoService.setApplicationName("testAppName");
-        fakeSystemInfoService.setApplicationVersion("1.0.0");
-        fakeSystemInfoService.setApplicationVersionCode("12345");
-        analyticsExtension = new AnalyticsExtension(mockExtensionApi, fakeSystemInfoService);
+        platformServices = new AndroidPlatformServices();
+        uiService = platformServices.getUIService();
+        this.mockSystemInfoServiceAppInfo();
+        Mockito.when(mockPlatformServices.getSystemInfoService()).thenReturn(mockSystemInfoService);
+        Mockito.when(mockPlatformServices.getUIService()).thenReturn(uiService);
+        analyticsExtension = new AnalyticsExtension(mockExtensionApi, mockPlatformServices);
+    }
+
+    private void mockSystemInfoServiceAppInfo() {
+        Mockito.when(mockSystemInfoService.getApplicationName()).thenReturn("testAppName");
+        Mockito.when(mockSystemInfoService.getApplicationVersion()).thenReturn("1.0.0");
+        Mockito.when(mockSystemInfoService.getApplicationVersionCode()).thenReturn("12345");
     }
 
     private void setupPrivacyStatusInSharedState(final String privacyStatus) {
@@ -551,7 +563,6 @@ public class AnalyticsExtensionTests {
         eventData.putObject(AnalyticsConstants.EventDataKeys.TRIGGERED_CONSEQUENCE, consequence);
         Event sampleEvent = new Event.Builder("rule event", EventType.RULES_ENGINE, EventSource.RESPONSE_CONTENT).setData(eventData).build();
         setupPrivacyStatusInSharedState("optedin");
-        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
 
         // test
         analyticsExtension.handleRulesEngineEvent(sampleEvent);
@@ -580,7 +591,6 @@ public class AnalyticsExtensionTests {
         eventData.putObject(AnalyticsConstants.EventDataKeys.TRIGGERED_CONSEQUENCE, consequence);
         Event sampleEvent = new Event.Builder("rule event", EventType.RULES_ENGINE, EventSource.RESPONSE_CONTENT).setData(eventData).build();
         setupPrivacyStatusInSharedState("optedin");
-        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
 
         // test
         analyticsExtension.handleRulesEngineEvent(sampleEvent);
@@ -610,7 +620,6 @@ public class AnalyticsExtensionTests {
         eventData.putObject(AnalyticsConstants.EventDataKeys.TRIGGERED_CONSEQUENCE, consequence);
         Event sampleEvent = new Event.Builder("rule event", EventType.RULES_ENGINE, EventSource.RESPONSE_CONTENT).setData(eventData).build();
         setupPrivacyStatusInSharedState("optedin");
-        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
 
         // test
         analyticsExtension.handleRulesEngineEvent(sampleEvent);
@@ -629,7 +638,6 @@ public class AnalyticsExtensionTests {
         // setup
         Event sampleEvent = new Event.Builder("rule event", EventType.RULES_ENGINE, EventSource.RESPONSE_CONTENT).build();
         setupPrivacyStatusInSharedState("optedin");
-        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
 
         // test
         analyticsExtension.handleRulesEngineEvent(sampleEvent);
@@ -668,7 +676,6 @@ public class AnalyticsExtensionTests {
         eventData.putObject(AnalyticsConstants.EventDataKeys.TRIGGERED_CONSEQUENCE, null);
         Event sampleEvent = new Event.Builder("rule event", EventType.RULES_ENGINE, EventSource.RESPONSE_CONTENT).setData(eventData).build();
         setupPrivacyStatusInSharedState("optedin");
-        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
 
         // test
         analyticsExtension.handleRulesEngineEvent(sampleEvent);
@@ -692,7 +699,6 @@ public class AnalyticsExtensionTests {
         eventData.putObject(AnalyticsConstants.EventDataKeys.TRIGGERED_CONSEQUENCE, consequence);
         Event sampleEvent = new Event.Builder("rule event", EventType.RULES_ENGINE, EventSource.RESPONSE_CONTENT).setData(eventData).build();
         setupPrivacyStatusInSharedState("optedin");
-        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
 
         // test
         analyticsExtension.handleRulesEngineEvent(sampleEvent);
@@ -804,7 +810,6 @@ public class AnalyticsExtensionTests {
         eventData.putStringMap(AnalyticsConstants.EventDataKeys.CONTEXT_DATA, contextData);
         Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setData(eventData).build();
         setupPrivacyStatusInSharedState("optedin");
-        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
 
         // test
         analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
