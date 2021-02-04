@@ -10,7 +10,6 @@
   governing permissions and limitations under the License.
 */
 
-// TODO: placeholder, needs to be cleaned
 package com.adobe.marketing.mobile;
 
 import android.content.Context;
@@ -50,6 +49,7 @@ import static org.mockito.Mockito.when;
 public class AnalyticsExtensionTests {
 
     private AnalyticsExtension analyticsExtension;
+    private FakeSystemInfoService fakeSystemInfoService;
 
     // Mocks
     @Mock
@@ -58,8 +58,6 @@ public class AnalyticsExtensionTests {
     ExtensionUnexpectedError mockExtensionUnexpectedError;
     @Mock
     Context context;
-    @Mock
-    SystemInfoService mockSystemInfoService;
 
     @Before
     public void setup() {
@@ -67,14 +65,11 @@ public class AnalyticsExtensionTests {
         PowerMockito.mockStatic(ExperienceEvent.class);
         PowerMockito.mockStatic(App.class);
         Mockito.when(App.getAppContext()).thenReturn(context);
-        this.mockSystemInfoServiceAppInfo();
-        analyticsExtension = new AnalyticsExtension(mockExtensionApi, mockSystemInfoService);
-    }
-
-    private void mockSystemInfoServiceAppInfo() {
-        PowerMockito.when(mockSystemInfoService.getApplicationName()).thenReturn("testAppName");
-        PowerMockito.when(mockSystemInfoService.getApplicationVersion()).thenReturn("1.0.0");
-        PowerMockito.when(mockSystemInfoService.getApplicationVersionCode()).thenReturn("12345");
+        fakeSystemInfoService = new FakeSystemInfoService();
+        fakeSystemInfoService.setApplicationName("testAppName");
+        fakeSystemInfoService.setApplicationVersion("1.0.0");
+        fakeSystemInfoService.setApplicationVersionCode("12345");
+        analyticsExtension = new AnalyticsExtension(mockExtensionApi, fakeSystemInfoService);
     }
 
     private void setupPrivacyStatusInSharedState(final String privacyStatus) {
