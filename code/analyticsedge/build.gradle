@@ -4,7 +4,6 @@ plugins {
 }
 
 apply plugin: 'com.android.library'
-apply plugin: "jacoco"
 apply plugin: "com.jfrog.bintray"
 
 ext {
