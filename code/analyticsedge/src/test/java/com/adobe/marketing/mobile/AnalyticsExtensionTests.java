@@ -568,11 +568,11 @@ public class AnalyticsExtensionTests {
         //Mocking static methods of MobileCore
         PowerMockito.mockStatic(MobileCore.class);
 
-        analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
         Mockito.when(platformServices.getLocalStorageService()).thenReturn(localStorageService);
         Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DATASTORE_NAME)).thenReturn(dataStore);
         Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID, null)).thenReturn(aid);
         Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.VISITOR_ID, null)).thenReturn(null);
+        analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
 
         HashMap<String, String> contextData = new HashMap<>();
         contextData.put("key1", "value1");
@@ -583,7 +583,6 @@ public class AnalyticsExtensionTests {
         eventData.putStringMap(AnalyticsConstants.EventDataKeys.CONTEXT_DATA, contextData);
         Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setData(eventData).build();
         setupPrivacyStatusInSharedState("optedin");
-        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
 
         // test
         analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
@@ -613,11 +612,11 @@ public class AnalyticsExtensionTests {
         //Mocking static methods of MobileCore
         PowerMockito.mockStatic(MobileCore.class);
 
-        analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
         Mockito.when(platformServices.getLocalStorageService()).thenReturn(localStorageService);
         Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DATASTORE_NAME)).thenReturn(dataStore);
         Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID, null)).thenReturn(null);
         Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.VISITOR_ID, null)).thenReturn(null);
+        analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
 
         HashMap<String, String> contextData = new HashMap<>();
         contextData.put("key1", "value1");
@@ -660,11 +659,11 @@ public class AnalyticsExtensionTests {
         //Mocking static methods of MobileCore
         PowerMockito.mockStatic(MobileCore.class);
 
-        analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
         Mockito.when(platformServices.getLocalStorageService()).thenReturn(localStorageService);
         Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DATASTORE_NAME)).thenReturn(dataStore);
         Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID, null)).thenReturn(null);
         Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.VISITOR_ID, null)).thenReturn(vid);
+        analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
 
         HashMap<String, String> contextData = new HashMap<>();
         contextData.put("key1", "value1");
@@ -705,11 +704,11 @@ public class AnalyticsExtensionTests {
         //Mocking static methods of MobileCore
         PowerMockito.mockStatic(MobileCore.class);
 
-        analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
         Mockito.when(platformServices.getLocalStorageService()).thenReturn(localStorageService);
         Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DATASTORE_NAME)).thenReturn(dataStore);
         Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID, null)).thenReturn(null);
         Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.VISITOR_ID, null)).thenReturn(null);
+        analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
 
         HashMap<String, String> contextData = new HashMap<>();
         contextData.put("key1", "value1");
@@ -750,9 +749,9 @@ public class AnalyticsExtensionTests {
     public void testAIDAndVIDGetsClearedOnOptOut() {
 
         //setup
-        analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
         Mockito.when(platformServices.getLocalStorageService()).thenReturn(localStorageService);
         Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DATASTORE_NAME)).thenReturn(dataStore);
+        analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
 
         setupPrivacyStatusInSharedState(MobilePrivacyStatus.OPT_OUT.getValue());
 
