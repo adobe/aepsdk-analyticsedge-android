@@ -21,7 +21,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.0.0-beta-2"
+        versionName "1.0.0-beta-5"
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         consumerProguardFiles 'consumer-rules.pro'
@@ -119,11 +119,6 @@ publishing {
                 coreDependencyNode.appendNode('groupId', 'com.adobe.marketing.mobile')
                 coreDependencyNode.appendNode('artifactId', 'core')
                 coreDependencyNode.appendNode('version', mavenCoreVersion)
-
-                def edgeDependencyNode = dependenciesNode.appendNode('dependency')
-                edgeDependencyNode.appendNode('groupId', 'com.adobe.marketing.mobile')
-                edgeDependencyNode.appendNode('artifactId', 'edge')
-                edgeDependencyNode.appendNode('version', mavenEdgeVersion)
             }
         }
         aarSnapshot(MavenPublication) {
@@ -161,11 +156,6 @@ publishing {
                 coreDependencyNode.appendNode('groupId', 'com.adobe.marketing.mobile')
                 coreDependencyNode.appendNode('artifactId', 'core')
                 coreDependencyNode.appendNode('version', mavenCoreVersion + '-SNAPSHOT')
-
-                def edgeDependencyNode = dependenciesNode.appendNode('dependency')
-                edgeDependencyNode.appendNode('groupId', 'com.adobe.marketing.mobile')
-                edgeDependencyNode.appendNode('artifactId', 'edge')
-                edgeDependencyNode.appendNode('version', mavenEdgeVersion + '-SNAPSHOT')
             }
         }
     }
@@ -216,7 +206,7 @@ dependencies {
     testImplementation 'org.powermock:powermock-api-mockito2:2.0.0'
     testImplementation 'org.powermock:powermock-module-junit4:2.0.0'
     testImplementation 'org.json:json:20180130'
-    implementation "com.adobe.marketing.mobile:edge:$mavenEdgeVersion"
+    testImplementation "com.adobe.marketing.mobile:edge:1.0.0"
 }
 
 afterEvaluate {

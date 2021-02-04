@@ -20,7 +20,8 @@ final class AnalyticsConstants {
     static final String LOG_TAG = "AnalyticsEdge";
     static final String EXTENSION_NAME = "com.adobe.module.analyticsedge";
     static final String FRIENDLY_NAME = "AnalyticsEdge";
-    static final String EXTENSION_VERSION = "1.0.0-beta-2";
+    static final String EXTENSION_VERSION = "1.0.0-beta-5";
+    static final String DATASTORE_NAME = "AnalyticsDataStorage"; //The data store name is same for Analytics direct and Analytics edge extensions.
 
     static final String APP_STATE_FOREGROUND = "foreground";
     static final String APP_STATE_BACKGROUND = "background";
@@ -30,7 +31,6 @@ final class AnalyticsConstants {
     static final String VAR_ESCAPE_PREFIX = "&&";
     static final String IGNORE_PAGE_NAME_VALUE = "lnk_o";
     static final String CHARSET = "UTF-8";
-    static final String DATASTORE_NAME = "AnalyticsDataStorage"; //The data store name is same for Analytics direct and Analytics edge extensions.
 
     static final MobilePrivacyStatus DEFAULT_PRIVACY_STATUS = MobilePrivacyStatus.UNKNOWN;
 
@@ -41,6 +41,10 @@ final class AnalyticsConstants {
 
     static final class Configuration {
         static final String GLOBAL_CONFIG_PRIVACY = "global.privacy";
+    }
+
+    static final class Edge {
+        static final String EVENT_TYPE = "com.adobe.eventType.edge";
     }
 
     static final class AnalyticsRequestKeys {

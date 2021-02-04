@@ -209,10 +209,10 @@ class AnalyticsExtension extends Extension implements EventsHandler {
         Log.debug(LOG_TAG, "Privacy status is opted out, clearing event queue.");
         eventQueue.clear();
 
-        //Set analyticsId and visitorId null on optout.
+        //Set analyticsId and visitorId null on optout
         analyticsId = null;
         visitorId = null;
-        //remove AID and VID from data store.
+        //remove AID and VID from data store
         if (platformServices == null) {
             Log.debug(LOG_TAG, "optout - can't remove AID and VID from data store. Platformservices is null.");
             return;
@@ -233,8 +233,11 @@ class AnalyticsExtension extends Extension implements EventsHandler {
      * @return The {@link MobilePrivacyStatus} present in the configuration.
      */
     private MobilePrivacyStatus getPrivacyStatus() {
-        if(currentConfiguration != null && !currentConfiguration.isEmpty()) {
-            return MobilePrivacyStatus.fromString((String) currentConfiguration.get(AnalyticsConstants.Configuration.GLOBAL_CONFIG_PRIVACY));
+        if (currentConfiguration != null && !currentConfiguration.isEmpty()) {
+            final Object currentPrivacy = currentConfiguration.get(AnalyticsConstants.Configuration.GLOBAL_CONFIG_PRIVACY);
+            if (currentPrivacy != null) {
+                return MobilePrivacyStatus.fromString(currentPrivacy.toString());
+            }
         }
         return AnalyticsConstants.DEFAULT_PRIVACY_STATUS;
     }
@@ -339,36 +342,36 @@ class AnalyticsExtension extends Extension implements EventsHandler {
      * @return {@code Map<String, String>} containing the context data
      */
     private HashMap<String, String> processAnalyticsData(final Event event) {
-        final HashMap<String, String> processedData = new HashMap<>();
+        final HashMap<String, String> processedContextData = new HashMap<>();
         final EventData eventData = event.getData();
 
         if(eventData == null || eventData.isEmpty()) {
-            return processedData;
+            return processedContextData;
         }
 
         final Map<String, String> contextData = eventData.optStringMap(AnalyticsConstants.EventDataKeys.CONTEXT_DATA, null);
-        if(contextData != null && !contextData.isEmpty()) {
+        if (contextData != null && !contextData.isEmpty()) {
             for (Map.Entry<String, String> entry : contextData.entrySet()) {
-                processedData.put(entry.getKey(), entry.getValue());
+                processedContextData.put(entry.getKey(), entry.getValue());
             }
         }
 
         final String actionName = eventData.optString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, null);
         if(!StringUtils.isNullOrEmpty(actionName)) {
             boolean isInternal = eventData.optBoolean(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, false);
-            processedData.put(getActionKey(isInternal), actionName);
+            processedContextData.put(getActionKey(isInternal), actionName);
         }
 
         // Todo :- Is TimeSinceLaunch" param is required? If so, calculate by listening to lifecycle shared state update
         if(getPrivacyStatus() == MobilePrivacyStatus.UNKNOWN) {
-            processedData.put(AnalyticsConstants.AnalyticsRequestKeys.PRIVACY_MODE, "unknown");
+            processedContextData.put(AnalyticsConstants.AnalyticsRequestKeys.PRIVACY_MODE, "unknown");
         }
 
         if(isAssuranceSessionActive(event)) {
-            processedData.put(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY, event.getUniqueIdentifier());
+            processedContextData.put(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY, event.getUniqueIdentifier());
         }
 
-        return processedData;
+        return processedContextData;
     }
 
     /**
@@ -439,8 +442,8 @@ class AnalyticsExtension extends Extension implements EventsHandler {
         eventData.put(AnalyticsConstants.XDMDataKeys.DATA, edgeEventData);
         final Event event = new Event.Builder(
                 AnalyticsConstants.ANALYTICS_XDM_EVENTNAME,
-                EdgeConstants.EVENT_TYPE_EDGE,
-                EdgeConstants.EVENT_SOURCE_EXTENSION_REQUEST_CONTENT).setEventData(eventData).build();
+                EventType.get(AnalyticsConstants.Edge.EVENT_TYPE),
+                EventSource.REQUEST_CONTENT).setEventData(eventData).build();
 
         MobileCore.dispatchEvent(event, null);
     }
