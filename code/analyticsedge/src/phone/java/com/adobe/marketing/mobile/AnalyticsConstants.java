@@ -30,6 +30,7 @@ final class AnalyticsConstants {
     static final String VAR_ESCAPE_PREFIX = "&&";
     static final String IGNORE_PAGE_NAME_VALUE = "lnk_o";
     static final String CHARSET = "UTF-8";
+    static final String DATASTORE_NAME = "AnalyticsDataStorage"; //The data store name is same for Analytics direct and Analytics edge extensions.
 
     static final MobilePrivacyStatus DEFAULT_PRIVACY_STATUS = MobilePrivacyStatus.UNKNOWN;
 
@@ -96,9 +97,8 @@ final class AnalyticsConstants {
     }
 
     static final class DataStoreKeys {
-        static final String ANALYTICS_DATA_STORAGE = "AnalyticsDataStorage";
-        static final String AID_KEY                = "ADOBEMOBILE_STOREDDEFAULTS_AID";
-        static final String VID_KEY = "ADOBEMOBILE_STOREDDEFAULTS_VISITOR_IDENTIFIER";
+        static final String ANALYTICS_ID = "ADOBEMOBILE_STOREDDEFAULTS_AID";
+        static final String VISITOR_ID = "ADOBEMOBILE_STOREDDEFAULTS_VISITOR_IDENTIFIER";
     }
 
     static final String ANALYTICS_XDM_EVENTTYPE = "legacy.analytics";

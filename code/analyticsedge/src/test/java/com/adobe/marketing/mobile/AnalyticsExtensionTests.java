@@ -22,8 +22,6 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.internal.verification.VerificationDataImpl;
-import org.mockito.internal.verification.api.VerificationData;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
@@ -191,9 +189,6 @@ public class AnalyticsExtensionTests {
         assertEquals("ADBINTERNAL:action", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.ACTION_NAME));
         assertEquals("foreground", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.CUSTOMER_PERSPECTIVE));
         assertEquals(timestamp, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.STRING_TIMESTAMP));
-//        assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.ContextDataKeys.INTERNAL_ACTION_KEY));
-//        assertEquals("true", edgeEventAnalyticsData.get(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL));
-//        assertEquals("{key1=value1, key2=value2}", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.CONTEXT_DATA));
         assertEquals("value1", edgeEventAnalyticsContextData.get("key1"));
         assertEquals("value2", edgeEventAnalyticsContextData.get("key2"));
         assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.ContextDataKeys.INTERNAL_ACTION_KEY));
@@ -386,9 +381,9 @@ public class AnalyticsExtensionTests {
 
         analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
         Mockito.when(platformServices.getLocalStorageService()).thenReturn(localStorageService);
-        Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DataStoreKeys.ANALYTICS_DATA_STORAGE)).thenReturn(dataStore);
-        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.AID_KEY, null)).thenReturn(aid);
-        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.VID_KEY, null)).thenReturn(null);
+        Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DATASTORE_NAME)).thenReturn(dataStore);
+        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID, null)).thenReturn(aid);
+        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.VISITOR_ID, null)).thenReturn(null);
 
         HashMap<String, String> contextData = new HashMap<>();
         contextData.put("key1", "value1");
@@ -431,9 +426,9 @@ public class AnalyticsExtensionTests {
 
         analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
         Mockito.when(platformServices.getLocalStorageService()).thenReturn(localStorageService);
-        Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DataStoreKeys.ANALYTICS_DATA_STORAGE)).thenReturn(dataStore);
-        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.AID_KEY, null)).thenReturn(null);
-        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.VID_KEY, null)).thenReturn(null);
+        Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DATASTORE_NAME)).thenReturn(dataStore);
+        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID, null)).thenReturn(null);
+        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.VISITOR_ID, null)).thenReturn(null);
 
         HashMap<String, String> contextData = new HashMap<>();
         contextData.put("key1", "value1");
@@ -478,9 +473,9 @@ public class AnalyticsExtensionTests {
 
         analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
         Mockito.when(platformServices.getLocalStorageService()).thenReturn(localStorageService);
-        Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DataStoreKeys.ANALYTICS_DATA_STORAGE)).thenReturn(dataStore);
-        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.AID_KEY, null)).thenReturn(null);
-        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.VID_KEY, null)).thenReturn(vid);
+        Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DATASTORE_NAME)).thenReturn(dataStore);
+        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID, null)).thenReturn(null);
+        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.VISITOR_ID, null)).thenReturn(vid);
 
         HashMap<String, String> contextData = new HashMap<>();
         contextData.put("key1", "value1");
@@ -523,9 +518,9 @@ public class AnalyticsExtensionTests {
 
         analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
         Mockito.when(platformServices.getLocalStorageService()).thenReturn(localStorageService);
-        Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DataStoreKeys.ANALYTICS_DATA_STORAGE)).thenReturn(dataStore);
-        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.AID_KEY, null)).thenReturn(null);
-        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.VID_KEY, null)).thenReturn(null);
+        Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DATASTORE_NAME)).thenReturn(dataStore);
+        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID, null)).thenReturn(null);
+        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.VISITOR_ID, null)).thenReturn(null);
 
         HashMap<String, String> contextData = new HashMap<>();
         contextData.put("key1", "value1");
@@ -563,12 +558,12 @@ public class AnalyticsExtensionTests {
     // =================================================================================================
 
     @Test
-    public void testAIDAndVIDGetClearedOnOptOut() {
+    public void testAIDAndVIDGetsClearedOnOptOut() {
 
         //setup
         analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
         Mockito.when(platformServices.getLocalStorageService()).thenReturn(localStorageService);
-        Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DataStoreKeys.ANALYTICS_DATA_STORAGE)).thenReturn(dataStore);
+        Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DATASTORE_NAME)).thenReturn(dataStore);
 
         setupPrivacyStatusInSharedState(MobilePrivacyStatus.OPT_OUT.getValue());
 
@@ -577,9 +572,8 @@ public class AnalyticsExtensionTests {
         analyticsExtension.handleConfigurationEvent(event);
 
         //Assertion
-        Mockito.verify(dataStore, times(1)).remove(AnalyticsConstants.DataStoreKeys.AID_KEY);
-        Mockito.verify(dataStore, times(1)).remove(AnalyticsConstants.DataStoreKeys.VID_KEY);
+        Mockito.verify(dataStore, times(1)).remove(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID);
+        Mockito.verify(dataStore, times(1)).remove(AnalyticsConstants.DataStoreKeys.VISITOR_ID);
 
     }
-
 }

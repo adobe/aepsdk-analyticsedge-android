@@ -12,15 +12,15 @@
 
 package com.adobe.marketing.mobile;
 
-import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_NAME;
-import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_VERSION;
-import static com.adobe.marketing.mobile.AnalyticsConstants.LOG_TAG;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_NAME;
+import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_VERSION;
+import static com.adobe.marketing.mobile.AnalyticsConstants.LOG_TAG;
 
 class AnalyticsExtension extends Extension implements EventsHandler {
 
@@ -29,6 +29,9 @@ class AnalyticsExtension extends Extension implements EventsHandler {
     private ExecutorService executorService;
     private final Object executorMutex = new Object();
     private Map<String, Object> currentConfiguration = new HashMap<>(); // the last valid config shared state
+
+    private String analyticsId;
+    private String visitorId;
 
     /**
      * Constructor.
@@ -47,12 +50,14 @@ class AnalyticsExtension extends Extension implements EventsHandler {
     protected AnalyticsExtension(final ExtensionApi extensionApi) {
         super(extensionApi);
         registerEventListeners(extensionApi);
+        initializeAIDAndVID();
     }
 
-    //Constructor for testing purpose.
+    //Constructor for Unit testing purpose.
     AnalyticsExtension(ExtensionApi extensionApi, PlatformServices platformServices) {
         super(extensionApi);
         this.platformServices = platformServices;
+        initializeAIDAndVID();
     }
 
     /**
@@ -204,20 +209,22 @@ class AnalyticsExtension extends Extension implements EventsHandler {
         Log.debug(LOG_TAG, "Privacy status is opted out, clearing event queue.");
         eventQueue.clear();
 
+        //Set analyticsId and visitorId null on optout.
+        analyticsId = null;
+        visitorId = null;
         //remove AID and VID from data store.
-        if(platformServices == null){
-            Log.debug(LOG_TAG, "optout - can't remove data store values. Platformservice is null.");
+        if (platformServices == null) {
+            Log.debug(LOG_TAG, "optout - can't remove AID and VID from data store. Platformservices is null.");
             return;
         }
-        final LocalStorageService.DataStore dataStore = platformServices.getLocalStorageService().getDataStore(AnalyticsConstants.DataStoreKeys.ANALYTICS_DATA_STORAGE);
-        if (dataStore != null) {
-            dataStore.remove(AnalyticsConstants.DataStoreKeys.AID_KEY);
-            dataStore.remove(AnalyticsConstants.DataStoreKeys.VID_KEY);
-            Log.debug(LOG_TAG, "optout - Removed AID and VID from datastore on optout.");
+        final LocalStorageService.DataStore dataStore = platformServices.getLocalStorageService().getDataStore(AnalyticsConstants.DATASTORE_NAME);
+        if (dataStore == null) {
+            Log.debug(LOG_TAG, "optout - Failed to remove AID and VID from datastore on optout. DataStore is null.");
             return;
         }
-
-        Log.debug(LOG_TAG, "optout - Failed in removing AID and VID from datastore on optout. DataStore is null.");
+        dataStore.remove(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID);
+        dataStore.remove(AnalyticsConstants.DataStoreKeys.VISITOR_ID);
+        Log.debug(LOG_TAG, "optout - Removed AID and VID from datastore on optout.");
     }
 
     /**
@@ -296,7 +303,13 @@ class AnalyticsExtension extends Extension implements EventsHandler {
             processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.PAGE_NAME, stateName);
         }
 
-        addAIDAndVIDToAnalyticsVars(processedVars);
+        if (!StringUtils.isNullOrEmpty(analyticsId)) {
+            processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.ANALYTICS_ID, analyticsId);
+        }
+        if (!StringUtils.isNullOrEmpty(visitorId)) {
+            processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.VISITOR_ID, visitorId);
+        }
+
         processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.CHARSET, AnalyticsConstants.CHARSET);
         processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.FORMATTED_TIMESTAMP, AnalyticsConstants.TIMESTAMP_TIMEZONE_OFFSET);
 
@@ -333,11 +346,10 @@ class AnalyticsExtension extends Extension implements EventsHandler {
             return processedData;
         }
 
-        // Todo:- Should we append default lifecycle context data (os version, device name, device version, etc) to each hits?
-        final Map<String, Object> contextData = (Map<String, Object>) event.getEventData().get(AnalyticsConstants.EventDataKeys.CONTEXT_DATA);
-        if(!contextData.isEmpty()) {
-            for (Map.Entry<String, Object> entry : contextData.entrySet()) {
-                processedData.put(entry.getKey(), (String) entry.getValue());
+        final Map<String, String> contextData = eventData.optStringMap(AnalyticsConstants.EventDataKeys.CONTEXT_DATA, null);
+        if(contextData != null && !contextData.isEmpty()) {
+            for (Map.Entry<String, String> entry : contextData.entrySet()) {
+                processedData.put(entry.getKey(), entry.getValue());
             }
         }
 
@@ -434,28 +446,20 @@ class AnalyticsExtension extends Extension implements EventsHandler {
     }
 
     /**
-     * Adds the `Analytic id` and `Visitor id` to Analytics vars in analytics hit.
-     * @param analyticsVars the analytics vars {@link Map}
+     * Initializes the variables {@link #analyticsId} and {@link #visitorId} using values stored in local storage.
      */
-    private void addAIDAndVIDToAnalyticsVars(final Map<String, String> analyticsVars) {
-        if (platformServices != null) {
-            final LocalStorageService.DataStore dataStore = platformServices.getLocalStorageService().getDataStore(AnalyticsConstants.DataStoreKeys.ANALYTICS_DATA_STORAGE);
-            if (dataStore != null) {
-                final String aid = dataStore.getString(AnalyticsConstants.DataStoreKeys.AID_KEY, null);
-                if (!StringUtils.isNullOrEmpty(aid)) {
-                    analyticsVars.put(AnalyticsConstants.AnalyticsRequestKeys.ANALYTICS_ID, aid);
-                }
-
-                final String vid = dataStore.getString(AnalyticsConstants.DataStoreKeys.VID_KEY, null);
-                if (!StringUtils.isNullOrEmpty(vid)) {
-                    analyticsVars.put(AnalyticsConstants.AnalyticsRequestKeys.VISITOR_ID, vid);
-                }
-            } else {
-                Log.debug(LOG_TAG, "addAIDAndVIDToAnalyticsVars - Unable to AID/VID to Analytics vars. DataStore is null.");
-            }
-        } else {
-            Log.debug(LOG_TAG, "addAIDAndVIDToAnalyticsVars - Unable to AID/VID to Analytics vars. PlatformServices is null.");
+    private void initializeAIDAndVID() {
+        if (platformServices == null) {
+            Log.debug(LOG_TAG, "addAIDAndVIDToAnalyticsVars - Unable to initialize AID and VID. PlatformServices is null.");
+            return;
         }
+        final LocalStorageService.DataStore dataStore = platformServices.getLocalStorageService().getDataStore(AnalyticsConstants.DATASTORE_NAME);
+        if (dataStore == null) {
+            Log.debug(LOG_TAG, "addAIDAndVIDToAnalyticsVars - Unable to initialize AID and VID. DataStore is null.");
+            return;
+        }
+        analyticsId = dataStore.getString(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID, null);
+        visitorId = dataStore.getString(AnalyticsConstants.DataStoreKeys.VISITOR_ID, null);
     }
 
     /**
