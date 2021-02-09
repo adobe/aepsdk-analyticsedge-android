@@ -20,7 +20,7 @@ final class AnalyticsConstants {
     static final String LOG_TAG = "AnalyticsEdge";
     static final String EXTENSION_NAME = "com.adobe.module.analyticsedge";
     static final String FRIENDLY_NAME = "AnalyticsEdge";
-    static final String EXTENSION_VERSION = "1.0.0-beta-5";
+    static final String EXTENSION_VERSION = "1.0.0-beta-6";
     static final String DATASTORE_NAME = "AnalyticsDataStorage"; //The data store name is same for Analytics direct and Analytics edge extensions.
 
     static final String APP_STATE_FOREGROUND = "foreground";

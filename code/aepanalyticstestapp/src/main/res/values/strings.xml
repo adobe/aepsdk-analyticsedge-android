@@ -5,6 +5,8 @@
     <string name="first_fragment_label">First Fragment</string>
     <string name="trackAction">Send Track Action</string>
     <string name="trackState">Send Track State</string>
+    <string name="optout">Set Privacy Opted Out</string>
+    <string name="optin">Set Privacy Opted In</string>
     <string name="previous">Previous</string>
 
     <string name="aep_analytics_main_fragment_message">AEP Analytics Test App</string>

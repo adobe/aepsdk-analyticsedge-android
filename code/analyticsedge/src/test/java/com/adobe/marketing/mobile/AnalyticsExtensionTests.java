@@ -63,6 +63,10 @@ public class AnalyticsExtensionTests {
     PlatformServices mockPlatformServices;
     @Mock
     SystemInfoService mockSystemInfoService;
+    @Mock
+    LocalStorageService localStorageService;
+    @Mock
+    LocalStorageService.DataStore dataStore;
 
     @Before
     public void setup() {
@@ -75,6 +79,8 @@ public class AnalyticsExtensionTests {
         this.mockSystemInfoServiceAppInfo();
         Mockito.when(mockPlatformServices.getSystemInfoService()).thenReturn(mockSystemInfoService);
         Mockito.when(mockPlatformServices.getUIService()).thenReturn(uiService);
+        Mockito.when(mockPlatformServices.getLocalStorageService()).thenReturn(localStorageService);
+        Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DATASTORE_NAME)).thenReturn(dataStore);
         analyticsExtension = new AnalyticsExtension(mockExtensionApi, mockPlatformServices);
     }
 
@@ -815,7 +821,6 @@ public class AnalyticsExtensionTests {
         analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
 
         // verify
-        // verify
         ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
         PowerMockito.verifyStatic(MobileCore.class, times(1));
         MobileCore.dispatchEvent(argument.capture(), (ExtensionErrorCallback<ExtensionError>) eq(null));
@@ -834,14 +839,6 @@ public class AnalyticsExtensionTests {
     // =================================================================================================
     // Test AID/VID is attached to `Analytics vars` of analytics hit, if present in Local storage.
     // =================================================================================================
-
-    @Mock
-    PlatformServices platformServices;
-    @Mock
-    LocalStorageService localStorageService;
-    @Mock
-    LocalStorageService.DataStore dataStore;
-
     @Test
     public void testAidIsAddedToAnalyticsVars() {
 
@@ -852,11 +849,11 @@ public class AnalyticsExtensionTests {
         //Mocking static methods of MobileCore
         PowerMockito.mockStatic(MobileCore.class);
 
-        Mockito.when(platformServices.getLocalStorageService()).thenReturn(localStorageService);
+        Mockito.when(mockPlatformServices.getLocalStorageService()).thenReturn(localStorageService);
         Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DATASTORE_NAME)).thenReturn(dataStore);
         Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID, null)).thenReturn(aid);
         Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.VISITOR_ID, null)).thenReturn(null);
-        analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
+        analyticsExtension = new AnalyticsExtension(mockExtensionApi, mockPlatformServices);
 
         HashMap<String, String> contextData = new HashMap<>();
         contextData.put("key1", "value1");
@@ -871,7 +868,6 @@ public class AnalyticsExtensionTests {
         // test
         analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
 
-        // verify
         // verify
         ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
         PowerMockito.verifyStatic(MobileCore.class, times(1));
@@ -896,11 +892,8 @@ public class AnalyticsExtensionTests {
         //Mocking static methods of MobileCore
         PowerMockito.mockStatic(MobileCore.class);
 
-        Mockito.when(platformServices.getLocalStorageService()).thenReturn(localStorageService);
-        Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DATASTORE_NAME)).thenReturn(dataStore);
         Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID, null)).thenReturn(null);
         Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.VISITOR_ID, null)).thenReturn(null);
-        analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
 
         HashMap<String, String> contextData = new HashMap<>();
         contextData.put("key1", "value1");
@@ -916,7 +909,6 @@ public class AnalyticsExtensionTests {
         // test
         analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
 
-        // verify
         // verify
         ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
         PowerMockito.verifyStatic(MobileCore.class, times(1));
@@ -943,11 +935,11 @@ public class AnalyticsExtensionTests {
         //Mocking static methods of MobileCore
         PowerMockito.mockStatic(MobileCore.class);
 
-        Mockito.when(platformServices.getLocalStorageService()).thenReturn(localStorageService);
+        Mockito.when(mockPlatformServices.getLocalStorageService()).thenReturn(localStorageService);
         Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DATASTORE_NAME)).thenReturn(dataStore);
         Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID, null)).thenReturn(null);
         Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.VISITOR_ID, null)).thenReturn(vid);
-        analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
+        analyticsExtension = new AnalyticsExtension(mockExtensionApi, mockPlatformServices);
 
         HashMap<String, String> contextData = new HashMap<>();
         contextData.put("key1", "value1");
@@ -963,7 +955,6 @@ public class AnalyticsExtensionTests {
         // test
         analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
 
-        // verify
         // verify
         ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
         PowerMockito.verifyStatic(MobileCore.class, times(1));
@@ -988,11 +979,8 @@ public class AnalyticsExtensionTests {
         //Mocking static methods of MobileCore
         PowerMockito.mockStatic(MobileCore.class);
 
-        Mockito.when(platformServices.getLocalStorageService()).thenReturn(localStorageService);
-        Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DATASTORE_NAME)).thenReturn(dataStore);
         Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID, null)).thenReturn(null);
         Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.VISITOR_ID, null)).thenReturn(null);
-        analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
 
         HashMap<String, String> contextData = new HashMap<>();
         contextData.put("key1", "value1");
@@ -1008,7 +996,6 @@ public class AnalyticsExtensionTests {
         // test
         analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
 
-        // verify
         // verify
         ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
         PowerMockito.verifyStatic(MobileCore.class, times(1));
@@ -1031,12 +1018,7 @@ public class AnalyticsExtensionTests {
 
     @Test
     public void testAIDAndVIDGetsClearedOnOptOut() {
-
         //setup
-        Mockito.when(platformServices.getLocalStorageService()).thenReturn(localStorageService);
-        Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DATASTORE_NAME)).thenReturn(dataStore);
-        analyticsExtension = new AnalyticsExtension(mockExtensionApi, platformServices);
-
         setupPrivacyStatusInSharedState(MobilePrivacyStatus.OPT_OUT.getValue());
 
         //Action

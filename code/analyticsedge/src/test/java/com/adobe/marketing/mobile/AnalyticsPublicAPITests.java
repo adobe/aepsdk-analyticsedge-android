@@ -68,7 +68,7 @@ public class AnalyticsPublicAPITests {
         PowerMockito.verifyStatic(Log.class, times(1));
 
         // verify
-        Log.debug("AnalyticsEdge", "clearQueue - is not currently supported with Edge");
+        Log.error("AnalyticsEdge", "clearQueue API will not be supported with Edge");
     }
 
     @Test
@@ -147,7 +147,7 @@ public class AnalyticsPublicAPITests {
         PowerMockito.verifyStatic(Log.class, times(1));
 
         // verify
-        Log.debug("AnalyticsEdge", "sendQueuedHits - is not currently supported with Edge");
+        Log.error("AnalyticsEdge", "sendQueuedHits API will not be supported with Edge");
     }
 
     @Test
@@ -157,7 +157,7 @@ public class AnalyticsPublicAPITests {
         PowerMockito.verifyStatic(Log.class, times(1));
 
         // verify
-        Log.debug("AnalyticsEdge", "setVisitorIdentifier - is not currently supported with Edge");
+        Log.error("AnalyticsEdge", "setVisitorIdentifier API will not be supported with Edge");
     }
 
 }

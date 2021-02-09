@@ -13,6 +13,7 @@
 package com.adobe.marketing.mobile;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -29,9 +30,8 @@ class AnalyticsExtension extends Extension implements EventsHandler {
     private ExecutorService executorService;
     private final Object executorMutex = new Object();
     private Map<String, Object> currentConfiguration = new HashMap<>(); // the last valid config shared state
-    private final SystemInfoService systemInfoService;
+    private AnalyticsHelper analyticsHelper;
     private String applicationIdentifier;
-
     private String analyticsId;
     private String visitorId;
 
@@ -43,7 +43,10 @@ class AnalyticsExtension extends Extension implements EventsHandler {
      * The following listeners are registered during this extension's registration.
      * <ul>
      *     <li> {@link ConfigurationResponseContentListener} listening to event with eventType {@link EventType#CONFIGURATION}
+     *     and EventSource {@link EventSource#RESPONSE_CONTENT}</li>
      *     <li> {@link GenericTrackRequestContentListener} listening to event with eventType {@link EventType#GENERIC_TRACK}
+     *     and EventSource {@link EventSource#REQUEST_CONTENT}</li>
+     *     <li> {@link RulesEngineResponseContentListener} listening to event with eventType {@link EventType#RULES_ENGINE}
      *     and EventSource {@link EventSource#RESPONSE_CONTENT}</li>
      * </ul>
      *
@@ -53,8 +56,9 @@ class AnalyticsExtension extends Extension implements EventsHandler {
         super(extensionApi);
         registerEventListeners(extensionApi);
         this.platformServices = new AndroidPlatformServices();
-        this.systemInfoService = platformServices.getSystemInfoService();
-        getApplicationIdentifier();
+        this.analyticsHelper = new AnalyticsHelper(platformServices);
+        this.applicationIdentifier = analyticsHelper.getApplicationIdentifier();
+        initializeAIDAndVID();
     }
 
     /**
@@ -67,8 +71,8 @@ class AnalyticsExtension extends Extension implements EventsHandler {
         super(extensionApi);
         registerEventListeners(extensionApi);
         this.platformServices = platformServices;
-        this.systemInfoService = platformServices.getSystemInfoService();
-        getApplicationIdentifier();
+        this.analyticsHelper = new AnalyticsHelper(platformServices);
+        this.applicationIdentifier = analyticsHelper.getApplicationIdentifier();
         initializeAIDAndVID();
     }
 
@@ -350,10 +354,10 @@ class AnalyticsExtension extends Extension implements EventsHandler {
      * @param data Track data for processing
      */
     private void track(final Event event, final Map<String, Object> data) {
-        if (!(data.containsKey(AnalyticsConstants.EventDataKeys.TRACK_STATE) ||
+        if (data == null || !(data.containsKey(AnalyticsConstants.EventDataKeys.TRACK_STATE) ||
                 data.containsKey(AnalyticsConstants.EventDataKeys.TRACK_ACTION) ||
                 data.containsKey(AnalyticsConstants.EventDataKeys.CONTEXT_DATA))) {
-            Log.warning(LOG_TAG, "track - Dropping request as event data is missing state, action or contextData");
+            Log.warning(LOG_TAG, "track - Dropping request as event data is null or missing state, action or contextData");
             return;
         }
         final Map<String, String> analyticsVars = processAnalyticsVars(event, data);
@@ -562,17 +566,5 @@ class AnalyticsExtension extends Extension implements EventsHandler {
 
             return executorService;
         }
-    }
-
-    /**
-     * Gets application info from the {@link AndroidSystemInfoService} and builds an application identifier string.
-     *
-     */
-    private void getApplicationIdentifier() {
-        final String applicationName =  systemInfoService.getApplicationName();
-        final String applicationVersion = systemInfoService.getApplicationVersion();
-        final String applicationBuildNumber = systemInfoService.getApplicationVersionCode();
-        final StringBuilder applicationIdentifierStringBuilder = new StringBuilder().append(applicationName).append(applicationVersion).append(applicationBuildNumber);
-        this.applicationIdentifier = applicationIdentifierStringBuilder.toString().replaceAll("  ", " ").replaceAll("()", "").trim();
     }
 }
