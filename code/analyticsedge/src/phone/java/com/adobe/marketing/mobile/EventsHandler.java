@@ -25,4 +25,10 @@ interface EventsHandler {
      * @param event Generic track request event
      */
     void handleAnalyticsTrackEvent(final Event event);
+
+    /**
+     * Handles the RulesEngineResponse event.
+     * @param event Rules engine response event which contains an Analytics rule action.
+     */
+    void handleRulesEngineEvent(final Event event);
 }
