@@ -12,16 +12,15 @@
 
 package com.adobe.marketing.mobile;
 
-import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_NAME;
-import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_VERSION;
-import static com.adobe.marketing.mobile.AnalyticsConstants.LOG_TAG;
-
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_NAME;
+import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_VERSION;
+import static com.adobe.marketing.mobile.AnalyticsConstants.LOG_TAG;
 
 class AnalyticsExtension extends Extension implements EventsHandler {
 
@@ -30,6 +29,9 @@ class AnalyticsExtension extends Extension implements EventsHandler {
     private ExecutorService executorService;
     private final Object executorMutex = new Object();
     private Map<String, Object> currentConfiguration = new HashMap<>(); // the last valid config shared state
+
+    private String analyticsId;
+    private String visitorId;
 
     /**
      * Constructor.
@@ -48,6 +50,14 @@ class AnalyticsExtension extends Extension implements EventsHandler {
     protected AnalyticsExtension(final ExtensionApi extensionApi) {
         super(extensionApi);
         registerEventListeners(extensionApi);
+        initializeAIDAndVID();
+    }
+
+    //Constructor for Unit testing purpose.
+    AnalyticsExtension(ExtensionApi extensionApi, PlatformServices platformServices) {
+        super(extensionApi);
+        this.platformServices = platformServices;
+        initializeAIDAndVID();
     }
 
     /**
@@ -198,6 +208,23 @@ class AnalyticsExtension extends Extension implements EventsHandler {
     private void optOut() {
         Log.debug(LOG_TAG, "Privacy status is opted out, clearing event queue.");
         eventQueue.clear();
+
+        //Set analyticsId and visitorId null on optout
+        analyticsId = null;
+        visitorId = null;
+        //remove AID and VID from data store
+        if (platformServices == null) {
+            Log.debug(LOG_TAG, "optout - can't remove AID and VID from data store. Platformservices is null.");
+            return;
+        }
+        final LocalStorageService.DataStore dataStore = platformServices.getLocalStorageService().getDataStore(AnalyticsConstants.DATASTORE_NAME);
+        if (dataStore == null) {
+            Log.debug(LOG_TAG, "optout - Failed to remove AID and VID from datastore on optout. DataStore is null.");
+            return;
+        }
+        dataStore.remove(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID);
+        dataStore.remove(AnalyticsConstants.DataStoreKeys.VISITOR_ID);
+        Log.debug(LOG_TAG, "optout - Removed AID and VID from datastore on optout.");
     }
 
     /**
@@ -206,9 +233,9 @@ class AnalyticsExtension extends Extension implements EventsHandler {
      * @return The {@link MobilePrivacyStatus} present in the configuration.
      */
     private MobilePrivacyStatus getPrivacyStatus() {
-        if(currentConfiguration != null && !currentConfiguration.isEmpty()) {
+        if (currentConfiguration != null && !currentConfiguration.isEmpty()) {
             final Object currentPrivacy = currentConfiguration.get(AnalyticsConstants.Configuration.GLOBAL_CONFIG_PRIVACY);
-            if(currentPrivacy != null) {
+            if (currentPrivacy != null) {
                 return MobilePrivacyStatus.fromString(currentPrivacy.toString());
             }
         }
@@ -279,15 +306,19 @@ class AnalyticsExtension extends Extension implements EventsHandler {
             processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.PAGE_NAME, stateName);
         }
 
-        // Todo:- Aid. Should we add it to identity map or vars
-        // Todo:- Vid. Should we add it to identity map or vars
+        if (!StringUtils.isNullOrEmpty(analyticsId)) {
+            processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.ANALYTICS_ID, analyticsId);
+        }
+        if (!StringUtils.isNullOrEmpty(visitorId)) {
+            processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.VISITOR_ID, visitorId);
+        }
+
         processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.CHARSET, AnalyticsConstants.CHARSET);
         processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.FORMATTED_TIMESTAMP, AnalyticsConstants.TIMESTAMP_TIMEZONE_OFFSET);
 
         // Set timestamp for all requests.
         processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.STRING_TIMESTAMP, Long.toString(event.getTimestampInSeconds()));
 
-        // Todo:- GetAnalyticsIdVisitorParameters ??
         final UIService uiService = platformServices.getUIService();
 
         if (uiService != null) {
@@ -318,14 +349,10 @@ class AnalyticsExtension extends Extension implements EventsHandler {
             return processedContextData;
         }
 
-        final Map<String, Object> contextData = (Map<String,Object>) event.getEventData().get(AnalyticsConstants.EventDataKeys.CONTEXT_DATA);
-
-        // Todo:- Should we append default lifecycle context data (os version, device name, device version, etc) to each hits?
-        if(contextData != null && !contextData.isEmpty()) {
-            Iterator iterator = contextData.entrySet().iterator();
-            while(iterator.hasNext()){
-                Map.Entry<String, String> currentEntry = (Map.Entry<String, String>) iterator.next();
-                processedContextData.put(currentEntry.getKey(), currentEntry.getValue());
+        final Map<String, String> contextData = eventData.optStringMap(AnalyticsConstants.EventDataKeys.CONTEXT_DATA, null);
+        if (contextData != null && !contextData.isEmpty()) {
+            for (Map.Entry<String, String> entry : contextData.entrySet()) {
+                processedContextData.put(entry.getKey(), entry.getValue());
             }
         }
 
@@ -419,6 +446,23 @@ class AnalyticsExtension extends Extension implements EventsHandler {
                 EventSource.REQUEST_CONTENT).setEventData(eventData).build();
 
         MobileCore.dispatchEvent(event, null);
+    }
+
+    /**
+     * Initializes the variables {@link #analyticsId} and {@link #visitorId} using values stored in local storage.
+     */
+    private void initializeAIDAndVID() {
+        if (platformServices == null) {
+            Log.debug(LOG_TAG, "addAIDAndVIDToAnalyticsVars - Unable to initialize AID and VID. PlatformServices is null.");
+            return;
+        }
+        final LocalStorageService.DataStore dataStore = platformServices.getLocalStorageService().getDataStore(AnalyticsConstants.DATASTORE_NAME);
+        if (dataStore == null) {
+            Log.debug(LOG_TAG, "addAIDAndVIDToAnalyticsVars - Unable to initialize AID and VID. DataStore is null.");
+            return;
+        }
+        analyticsId = dataStore.getString(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID, null);
+        visitorId = dataStore.getString(AnalyticsConstants.DataStoreKeys.VISITOR_ID, null);
     }
 
     /**
