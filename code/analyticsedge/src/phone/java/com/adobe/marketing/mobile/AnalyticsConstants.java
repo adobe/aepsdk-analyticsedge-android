@@ -21,7 +21,7 @@ final class AnalyticsConstants {
     static final String EXTENSION_NAME = "com.adobe.module.analyticsedge";
     static final String FRIENDLY_NAME = "AnalyticsEdge";
     static final String EXTENSION_VERSION = "1.0.0-beta-5";
-    static final String DATASTORE_NAME = EXTENSION_NAME;
+    static final String DATASTORE_NAME = "AnalyticsDataStorage"; //The data store name is same for Analytics direct and Analytics edge extensions.
 
     static final String APP_STATE_FOREGROUND = "foreground";
     static final String APP_STATE_BACKGROUND = "background";
@@ -106,6 +106,11 @@ final class AnalyticsConstants {
         static final String CONTEXT_DATA = "c";
         static final String DATA = "data";
         static final String XDM = "xdm";
+    }
+
+    static final class DataStoreKeys {
+        static final String ANALYTICS_ID = "ADOBEMOBILE_STOREDDEFAULTS_AID";
+        static final String VISITOR_ID = "ADOBEMOBILE_STOREDDEFAULTS_VISITOR_IDENTIFIER";
     }
 
     static final String ANALYTICS_XDM_EVENTTYPE = "legacy.analytics";

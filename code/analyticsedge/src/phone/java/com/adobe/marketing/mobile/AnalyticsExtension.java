@@ -12,16 +12,15 @@
 
 package com.adobe.marketing.mobile;
 
-import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_NAME;
-import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_VERSION;
-import static com.adobe.marketing.mobile.AnalyticsConstants.LOG_TAG;
-
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_NAME;
+import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_VERSION;
+import static com.adobe.marketing.mobile.AnalyticsConstants.LOG_TAG;
 
 class AnalyticsExtension extends Extension implements EventsHandler {
 
@@ -32,6 +31,9 @@ class AnalyticsExtension extends Extension implements EventsHandler {
     private Map<String, Object> currentConfiguration = new HashMap<>(); // the last valid config shared state
     private final SystemInfoService systemInfoService;
     private String applicationIdentifier;
+
+    private String analyticsId;
+    private String visitorId;
 
     /**
      * Constructor.
@@ -67,6 +69,7 @@ class AnalyticsExtension extends Extension implements EventsHandler {
         this.platformServices = platformServices;
         this.systemInfoService = platformServices.getSystemInfoService();
         getApplicationIdentifier();
+        initializeAIDAndVID();
     }
 
     /**
@@ -283,6 +286,23 @@ class AnalyticsExtension extends Extension implements EventsHandler {
     private void optOut() {
         Log.debug(LOG_TAG, "Privacy status is opted out, clearing event queue.");
         eventQueue.clear();
+
+        //Set analyticsId and visitorId null on optout
+        analyticsId = null;
+        visitorId = null;
+        //remove AID and VID from data store
+        if (platformServices == null) {
+            Log.debug(LOG_TAG, "optout - can't remove AID and VID from data store. Platformservices is null.");
+            return;
+        }
+        final LocalStorageService.DataStore dataStore = platformServices.getLocalStorageService().getDataStore(AnalyticsConstants.DATASTORE_NAME);
+        if (dataStore == null) {
+            Log.debug(LOG_TAG, "optout - Failed to remove AID and VID from datastore on optout. DataStore is null.");
+            return;
+        }
+        dataStore.remove(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID);
+        dataStore.remove(AnalyticsConstants.DataStoreKeys.VISITOR_ID);
+        Log.debug(LOG_TAG, "optout - Removed AID and VID from datastore on optout.");
     }
 
     /**
@@ -370,8 +390,13 @@ class AnalyticsExtension extends Extension implements EventsHandler {
             processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.PAGE_NAME, applicationIdentifier);
         }
 
-        // Todo:- Aid. Should we add it to identity map or vars
-        // Todo:- Vid. Should we add it to identity map or vars
+        if (!StringUtils.isNullOrEmpty(analyticsId)) {
+            processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.ANALYTICS_ID, analyticsId);
+        }
+        if (!StringUtils.isNullOrEmpty(visitorId)) {
+            processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.VISITOR_ID, visitorId);
+        }
+
         processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.CHARSET, AnalyticsConstants.CHARSET);
         processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.FORMATTED_TIMESTAMP, AnalyticsConstants.TIMESTAMP_TIMEZONE_OFFSET);
 
@@ -505,6 +530,23 @@ class AnalyticsExtension extends Extension implements EventsHandler {
                 EventSource.REQUEST_CONTENT).setEventData(eventData).build();
 
         MobileCore.dispatchEvent(event, null);
+    }
+
+    /**
+     * Initializes the variables {@link #analyticsId} and {@link #visitorId} using values stored in local storage.
+     */
+    private void initializeAIDAndVID() {
+        if (platformServices == null) {
+            Log.debug(LOG_TAG, "addAIDAndVIDToAnalyticsVars - Unable to initialize AID and VID. PlatformServices is null.");
+            return;
+        }
+        final LocalStorageService.DataStore dataStore = platformServices.getLocalStorageService().getDataStore(AnalyticsConstants.DATASTORE_NAME);
+        if (dataStore == null) {
+            Log.debug(LOG_TAG, "addAIDAndVIDToAnalyticsVars - Unable to initialize AID and VID. DataStore is null.");
+            return;
+        }
+        analyticsId = dataStore.getString(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID, null);
+        visitorId = dataStore.getString(AnalyticsConstants.DataStoreKeys.VISITOR_ID, null);
     }
 
     /**
