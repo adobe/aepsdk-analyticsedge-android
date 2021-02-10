@@ -155,5 +155,5 @@ jobs:
       - checkout
       - run:
           name: Bintray Upload
-          command: ci-publish -PapiKey=$bintrayAPIKey -PgpgPassphrase=$gpgPassphrase            
+          command: make ci-publish -PapiKey=$bintrayAPIKey -PgpgPassphrase=$gpgPassphrase            
     
