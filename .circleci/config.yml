@@ -155,5 +155,5 @@ jobs:
       - checkout
       - run:
           name: Bintray Upload
-          command: code/gradlew -p code/analyticsedge bintrayUpload -PapiKey=$bintrayAPIKey -PgpgPassphrase=$gpgPassphrase            
+          command: ci-publish -PapiKey=$bintrayAPIKey -PgpgPassphrase=$gpgPassphrase            
     
