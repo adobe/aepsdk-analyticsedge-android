@@ -147,6 +147,7 @@ jobs:
               ]
             }
   publish:
+    working_directory: ~/code
     docker:
       - image: circleci/android:api-29
     environment:
@@ -155,5 +156,5 @@ jobs:
       - checkout
       - run:
           name: Bintray Upload
-          command: make ci-publish           
+          command: code/gradlew -p code/analyticsedge bintrayUpload -PapiKey=$bintrayAPIKey -PgpgPassphrase=$gpgPassphrase
     
