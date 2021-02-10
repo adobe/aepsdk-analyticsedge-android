@@ -1,3 +1,4 @@
+[![codecov](https://codecov.io/gh/adobe/aepsdk-analyticsedge-android/branch/main/graph/badge.svg?token=RPX6W35DI5)](https://codecov.io/gh/adobe/aepsdk-analyticsedge-android)
 # Adobe Experience Platform Analytics Edge Mobile Extension
 
 ## BETA

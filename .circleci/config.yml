@@ -37,7 +37,10 @@ jobs:
           command: code/gradlew -p code/analyticsedge assemblePhoneDebug
       - run:
           name: UnitTests
-          command: code/gradlew -p code/analyticsedge platformUnitTestJacocoReport
+          command: make ci-unit-test
+      - run:
+          name: Upload Code Coverage Report
+          command: bash <(curl -s https://codecov.io/bash) -v -c -s "./ci/unit-test/build/reports/jacoco/platformUnitTestJacocoReport/" -t ${CODECOV_TOKEN}
   # slack notification
       - slack/notify:
           channel: ${SLACK_DEFAULT_CHANNEL}

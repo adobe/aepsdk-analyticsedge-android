@@ -12,23 +12,28 @@
 
 package com.adobe.marketing.mobile;
 
-import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_NAME;
-import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_VERSION;
-import static com.adobe.marketing.mobile.AnalyticsConstants.LOG_TAG;
-
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_NAME;
+import static com.adobe.marketing.mobile.AnalyticsConstants.EXTENSION_VERSION;
+import static com.adobe.marketing.mobile.AnalyticsConstants.LOG_TAG;
+
 class AnalyticsExtension extends Extension implements EventsHandler {
 
     private ConcurrentLinkedQueue<Event> eventQueue = new ConcurrentLinkedQueue<>();
-    private PlatformServices platformServices = new AndroidPlatformServices();
+    private final PlatformServices platformServices;
     private ExecutorService executorService;
     private final Object executorMutex = new Object();
     private Map<String, Object> currentConfiguration = new HashMap<>(); // the last valid config shared state
+    private AnalyticsHelper analyticsHelper;
+    private String applicationIdentifier;
+    private String analyticsId;
+    private String visitorId;
 
     /**
      * Constructor.
@@ -38,7 +43,10 @@ class AnalyticsExtension extends Extension implements EventsHandler {
      * The following listeners are registered during this extension's registration.
      * <ul>
      *     <li> {@link ConfigurationResponseContentListener} listening to event with eventType {@link EventType#CONFIGURATION}
+     *     and EventSource {@link EventSource#RESPONSE_CONTENT}</li>
      *     <li> {@link GenericTrackRequestContentListener} listening to event with eventType {@link EventType#GENERIC_TRACK}
+     *     and EventSource {@link EventSource#REQUEST_CONTENT}</li>
+     *     <li> {@link RulesEngineResponseContentListener} listening to event with eventType {@link EventType#RULES_ENGINE}
      *     and EventSource {@link EventSource#RESPONSE_CONTENT}</li>
      * </ul>
      *
@@ -47,6 +55,25 @@ class AnalyticsExtension extends Extension implements EventsHandler {
     protected AnalyticsExtension(final ExtensionApi extensionApi) {
         super(extensionApi);
         registerEventListeners(extensionApi);
+        this.platformServices = new AndroidPlatformServices();
+        this.analyticsHelper = new AnalyticsHelper(platformServices);
+        this.applicationIdentifier = analyticsHelper.getApplicationIdentifier();
+        initializeAIDAndVID();
+    }
+
+    /**
+     * Constructor for testing purposes.
+     *
+     * @param extensionApi  {@link ExtensionApi} instance
+     * @param platformServices the mocked {@link PlatformServices} instance
+     */
+    AnalyticsExtension(ExtensionApi extensionApi, PlatformServices platformServices) {
+        super(extensionApi);
+        registerEventListeners(extensionApi);
+        this.platformServices = platformServices;
+        this.analyticsHelper = new AnalyticsHelper(platformServices);
+        this.applicationIdentifier = analyticsHelper.getApplicationIdentifier();
+        initializeAIDAndVID();
     }
 
     /**
@@ -101,6 +128,7 @@ class AnalyticsExtension extends Extension implements EventsHandler {
     private void registerEventListeners(final ExtensionApi extensionApi) {
         extensionApi.registerListener(EventType.CONFIGURATION, EventSource.RESPONSE_CONTENT, ConfigurationResponseContentListener.class);
         extensionApi.registerListener(EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT, GenericTrackRequestContentListener.class);
+        extensionApi.registerListener(EventType.RULES_ENGINE, EventSource.RESPONSE_CONTENT, RulesEngineResponseContentListener.class);
 
         Log.debug(AnalyticsConstants.LOG_TAG, "Registering Analytics extension - version %s",
                 AnalyticsConstants.EXTENSION_VERSION);
@@ -130,6 +158,8 @@ class AnalyticsExtension extends Extension implements EventsHandler {
                 return;
             }
 
+            final Map<String, Object> eventData = eventToProcess.getEventData();
+
             // NOTE: configuration is mandatory to process an event, so if shared state is null (pending) stop processing events
             if (currentConfiguration == null) {
                 Log.warning(AnalyticsConstants.LOG_TAG,
@@ -140,7 +170,11 @@ class AnalyticsExtension extends Extension implements EventsHandler {
             else if (EventType.GENERIC_TRACK.getName().equalsIgnoreCase(eventToProcess.getType()) &&
                     EventSource.REQUEST_CONTENT.getName().equalsIgnoreCase(eventToProcess.getSource())) {
                 // handle the track event information from the generic track request content event
-                track(eventToProcess);
+                track(eventToProcess, eventData);
+            }
+
+            else if (EventType.RULES_ENGINE.getName().equalsIgnoreCase(eventToProcess.getType())) {
+                processRulesEngineResponseEvent(eventToProcess);
             }
 
             // event processed, remove it from the queue
@@ -149,7 +183,7 @@ class AnalyticsExtension extends Extension implements EventsHandler {
     }
 
     /**
-     * Processes the passed in Configuration Response Content event.
+     * Adds the Rules Configuration Response Content event to the event queue to be processed.
      *
      * <p>
      * Any events in the event queue will be cleared if the privacy status is opted out.
@@ -168,7 +202,7 @@ class AnalyticsExtension extends Extension implements EventsHandler {
     }
 
     /**
-     * Processes the passed in Generic Track Request Content event.
+     * Adds the Generic Track Request Content event to the event queue to be processed.
      *
      * @param event The Generic Track Request Content {@link Event} to be processed.
      */
@@ -192,11 +226,87 @@ class AnalyticsExtension extends Extension implements EventsHandler {
     }
 
     /**
+     * Adds the Rules Engine Response Content event to the event queue to be processed.
+     *
+     * <p>
+     * Any events in the event queue will be cleared if the privacy status is opted out.
+     *
+     * @param event The Rules Engine Response Content {@link Event} to be processed.
+     */
+    @Override
+    public void handleRulesEngineEvent(final Event event) {
+        if (event == null) {
+            Log.debug(AnalyticsConstants.LOG_TAG, "Unable to handle rules engine response. Event received is null.");
+            return;
+        }
+
+        eventQueue.add(event);
+        processEvents();
+    }
+
+    /**
+     * Processes the passed in Rules Engine Response Content event.
+     *
+     * @param event The Rules Engine Response Content {@link Event} to be processed.
+     */
+    private void processRulesEngineResponseEvent(final Event event) {
+        Map<String, Object> data = event.getEventData();
+        if (data == null || data.isEmpty()) {
+            Log.debug(LOG_TAG, "processRulesEngineResponseEvent - Event with id %s contained no data, ignoring.", event.getUniqueIdentifier());
+            return;
+        }
+
+        Log.trace(LOG_TAG, "processRulesEngineResponseEvent - Processing event with id %s.", event.getUniqueIdentifier());
+
+        final Map<String,Object> consequence = (Map<String,Object>) data.get(AnalyticsConstants.EventDataKeys.TRIGGERED_CONSEQUENCE);
+        if (consequence == null || consequence.isEmpty()) {
+            Log.trace(LOG_TAG, "processRulesEngineResponseEvent - Ignoring as missing consequence data in event with id %s.", event.getUniqueIdentifier());
+            return;
+        }
+
+        final String consequenceType = (String) consequence.get(AnalyticsConstants.EventDataKeys.TYPE);
+        if (!AnalyticsConstants.ConsequenceTypes.TRACK.equals(consequenceType)) {
+            Log.trace(LOG_TAG, "processRulesEngineResponseEvent - Ignoring as consequence type is not analytics in event with id %s.", event.getUniqueIdentifier());
+            return;
+        }
+
+        final String consequenceId = (String) consequence.get(AnalyticsConstants.EventDataKeys.ID);
+        if (StringUtils.isNullOrEmpty(consequenceId)) {
+            Log.trace(LOG_TAG, "processRulesEngineResponseEvent - Ignoring as consequence id is missing in event with id %s.", event.getUniqueIdentifier());
+            return;
+        }
+
+        Map<String, Object> consequenceDetail = new HashMap<>();
+        if (consequence.get(AnalyticsConstants.EventDataKeys.DETAIL) != null) {
+            consequenceDetail = (Map<String, Object>) consequence.get(AnalyticsConstants.EventDataKeys.DETAIL);
+        }
+
+        track(event, consequenceDetail);
+    }
+
+    /**
      * This method clears the event queue when privacy status is opted out.
      */
     private void optOut() {
         Log.debug(LOG_TAG, "Privacy status is opted out, clearing event queue.");
         eventQueue.clear();
+
+        //Set analyticsId and visitorId null on optout
+        analyticsId = null;
+        visitorId = null;
+        //remove AID and VID from data store
+        if (platformServices == null) {
+            Log.debug(LOG_TAG, "optout - can't remove AID and VID from data store. Platformservices is null.");
+            return;
+        }
+        final LocalStorageService.DataStore dataStore = platformServices.getLocalStorageService().getDataStore(AnalyticsConstants.DATASTORE_NAME);
+        if (dataStore == null) {
+            Log.debug(LOG_TAG, "optout - Failed to remove AID and VID from datastore on optout. DataStore is null.");
+            return;
+        }
+        dataStore.remove(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID);
+        dataStore.remove(AnalyticsConstants.DataStoreKeys.VISITOR_ID);
+        Log.debug(LOG_TAG, "optout - Removed AID and VID from datastore on optout.");
     }
 
     /**
@@ -205,9 +315,9 @@ class AnalyticsExtension extends Extension implements EventsHandler {
      * @return The {@link MobilePrivacyStatus} present in the configuration.
      */
     private MobilePrivacyStatus getPrivacyStatus() {
-        if(currentConfiguration != null && !currentConfiguration.isEmpty()) {
+        if (currentConfiguration != null && !currentConfiguration.isEmpty()) {
             final Object currentPrivacy = currentConfiguration.get(AnalyticsConstants.Configuration.GLOBAL_CONFIG_PRIVACY);
-            if(currentPrivacy != null) {
+            if (currentPrivacy != null) {
                 return MobilePrivacyStatus.fromString(currentPrivacy.toString());
             }
         }
@@ -233,18 +343,25 @@ class AnalyticsExtension extends Extension implements EventsHandler {
      * @return The action key {@link String} corresponding to the type of track request.
      */
     private String getActionKey(final boolean isInternalAction) {
-        return isInternalAction ? AnalyticsConstants.ContextDataKeys.INTERNAL_ACTION_KEY :
-                AnalyticsConstants.ContextDataKeys.ACTION_KEY;
+        return isInternalAction ? AnalyticsConstants.ContextDataKeys.INTERNAL_ACTION :
+                AnalyticsConstants.ContextDataKeys.ACTION;
     }
 
     /**
      * This prepares the analytics variables and analytics data from the passed in event.
      *
-     * @param event The Generic Track Request Content {@link Event}.
+     * @param event An event containing track data for processing
+     * @param data Track data for processing
      */
-    private void track(final Event event) {
-        final HashMap<String, String> analyticsVars = processAnalyticsVars(event);
-        final HashMap<String, String> analyticsData = processAnalyticsData(event);
+    private void track(final Event event, final Map<String, Object> data) {
+        if (data == null || !(data.containsKey(AnalyticsConstants.EventDataKeys.TRACK_STATE) ||
+                data.containsKey(AnalyticsConstants.EventDataKeys.TRACK_ACTION) ||
+                data.containsKey(AnalyticsConstants.EventDataKeys.CONTEXT_DATA))) {
+            Log.warning(LOG_TAG, "track - Dropping request as event data is null or missing state, action or contextData");
+            return;
+        }
+        final Map<String, String> analyticsVars = processAnalyticsVars(event, data);
+        final Map<String, String> analyticsData = processAnalyticsData(event, data);
         sendAnalyticsHit(analyticsVars, analyticsData);
     }
 
@@ -252,41 +369,44 @@ class AnalyticsExtension extends Extension implements EventsHandler {
      * This method converts the event's event data into analytics variables.
      *
      * @param event The Generic Track Request Content {@link Event}.
+     * @param data Track data for processing
      *
      * @return {@code Map<String, String>} containing the vars data
      */
-    private HashMap<String, String> processAnalyticsVars(final Event event) {
+    private HashMap<String, String> processAnalyticsVars(final Event event, final Map<String, Object> data) {
         final HashMap<String, String> processedVars = new HashMap<>();
-        final EventData eventData = event.getData();
-
-        if(eventData == null || eventData.isEmpty()) {
-            return processedVars;
-        }
-
-        // context: pe/pev2 values should always be present in track calls if there's action regardless of state.
+        // Context: pe/pev2 values should always be present in track calls if there's action regardless of state.
         // If state is present then pageName = state name else pageName = app id to prevent hit from being discarded.
-        final String actionName = eventData.optString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, null);
-        if(!StringUtils.isNullOrEmpty(actionName)) {
+        final String actionName = (String) data.get(AnalyticsConstants.EventDataKeys.TRACK_ACTION);
+        if (!StringUtils.isNullOrEmpty(actionName)) {
             processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.IGNORE_PAGE_NAME, AnalyticsConstants.IGNORE_PAGE_NAME_VALUE);
-            boolean isInternal = eventData.optBoolean(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, false);
+            boolean isInternal = false;
+            if (data.get(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL) != null) {
+                isInternal = (boolean) data.get(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL);
+            }
             processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.ACTION_NAME, getActionPrefix(isInternal) + actionName);
         }
-        // Todo :- We currently read application id from lifecycle
-        // processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.PAGE_NAME, state->GetApplicationId());
-        final String stateName = eventData.optString(AnalyticsConstants.EventDataKeys.TRACK_STATE, null);
-        if(!StringUtils.isNullOrEmpty(stateName)) {
+
+        final String stateName = (String) data.get(AnalyticsConstants.EventDataKeys.TRACK_STATE);
+        if (!StringUtils.isNullOrEmpty(stateName)) {
             processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.PAGE_NAME, stateName);
+        } else {
+            processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.PAGE_NAME, applicationIdentifier);
         }
 
-        // Todo:- Aid. Should we add it to identity map or vars
-        // Todo:- Vid. Should we add it to identity map or vars
+        if (!StringUtils.isNullOrEmpty(analyticsId)) {
+            processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.ANALYTICS_ID, analyticsId);
+        }
+        if (!StringUtils.isNullOrEmpty(visitorId)) {
+            processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.VISITOR_ID, visitorId);
+        }
+
         processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.CHARSET, AnalyticsConstants.CHARSET);
         processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.FORMATTED_TIMESTAMP, AnalyticsConstants.TIMESTAMP_TIMEZONE_OFFSET);
 
         // Set timestamp for all requests.
         processedVars.put(AnalyticsConstants.AnalyticsRequestKeys.STRING_TIMESTAMP, Long.toString(event.getTimestampInSeconds()));
 
-        // Todo:- GetAnalyticsIdVisitorParameters ??
         final UIService uiService = platformServices.getUIService();
 
         if (uiService != null) {
@@ -306,41 +426,40 @@ class AnalyticsExtension extends Extension implements EventsHandler {
      * This method converts the event's event data into analytics variables.
      *
      * @param event The Generic Track Request Content {@link Event}.
+     * @param data Track data for processing
      *
      * @return {@code Map<String, String>} containing the context data
      */
-    private HashMap<String, String> processAnalyticsData(final Event event) {
-        final HashMap<String, String> processedData = new HashMap<>();
-        final EventData eventData = event.getData();
+    private HashMap<String, String> processAnalyticsData(final Event event, final Map<String, Object> data) {
+        final HashMap<String, String> processedContextData = new HashMap<>();
 
-        if(eventData == null || eventData.isEmpty()) {
-            return processedData;
-        }
-
-        // Todo:- Should we append default lifecycle context data (os version, device name, device version, etc) to each hits?
-        final Map<String, Object> contextData = event.getEventData();
-        if(!contextData.isEmpty()) {
-            for (Map.Entry<String, Object> entry : contextData.entrySet()) {
-                processedData.put(entry.getKey(), entry.getValue().toString());
+        final Map<String, String> contextData = (Map<String, String>) data.get(AnalyticsConstants.EventDataKeys.CONTEXT_DATA);
+        if (contextData != null && !contextData.isEmpty()) {
+            Iterator iterator = contextData.entrySet().iterator();
+            while(iterator.hasNext()){
+                Map.Entry<String, String> currentEntry = (Map.Entry<String, String>) iterator.next();
+                processedContextData.put(currentEntry.getKey(), currentEntry.getValue());
             }
         }
 
-        final String actionName = eventData.optString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, null);
-        if(!StringUtils.isNullOrEmpty(actionName)) {
-            boolean isInternal = eventData.optBoolean(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, false);
-            processedData.put(getActionKey(isInternal), actionName);
+        final String actionName = (String) data.get(AnalyticsConstants.EventDataKeys.TRACK_ACTION);
+        if (!StringUtils.isNullOrEmpty(actionName)) {
+            boolean isInternal = false;
+            if (data.get(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL) != null) {
+                isInternal = (boolean) data.get(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL);
+            }
+            processedContextData.put(getActionKey(isInternal), actionName);
         }
 
-        // Todo :- Is TimeSinceLaunch" param is required? If so, calculate by listening to lifecycle shared state update
-        if(getPrivacyStatus() == MobilePrivacyStatus.UNKNOWN) {
-            processedData.put(AnalyticsConstants.AnalyticsRequestKeys.PRIVACY_MODE, "unknown");
+        if (getPrivacyStatus() == MobilePrivacyStatus.UNKNOWN) {
+            processedContextData.put(AnalyticsConstants.AnalyticsRequestKeys.PRIVACY_MODE, "unknown");
         }
 
-        if(isAssuranceSessionActive(event)) {
-            processedData.put(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY, event.getUniqueIdentifier());
+        if (isAssuranceSessionActive(event)) {
+            processedContextData.put(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER, event.getUniqueIdentifier());
         }
 
-        return processedData;
+        return processedContextData;
     }
 
     /**
@@ -350,14 +469,14 @@ class AnalyticsExtension extends Extension implements EventsHandler {
      * @return a boolean, true if the Assurance session is active false otherwise.
      */
     private boolean isAssuranceSessionActive(final Event event) {
-        if(event == null || event.getEventData() == null) {
+        if (event == null || event.getEventData() == null) {
             Log.debug(LOG_TAG, "isAssuranceSessionActive - event or event data is null. Returning false.");
             return false;
         }
 
         final ExtensionApi extensionApi = getApi();
         final EventData assuranceSharedState = extensionApi.getSharedEventState(AnalyticsConstants.SharedStateKeys.ASSURANCE, event);
-        if(assuranceSharedState == null) {
+        if (assuranceSharedState == null) {
             return false;
         }
         final String sessionId = assuranceSharedState.optString(AnalyticsConstants.EventDataKeys.SESSION_ID,"");
@@ -371,7 +490,7 @@ class AnalyticsExtension extends Extension implements EventsHandler {
      * @param analyticsData {@code Map<String, String>} containing the analytics context data
      *
      */
-    private void sendAnalyticsHit(final HashMap<String, String> analyticsVars, final HashMap<String, String> analyticsData) {
+    private void sendAnalyticsHit(final Map<String, String> analyticsVars, final Map<String, String> analyticsData) {
         final HashMap<String, Object> legacyAnalyticsData = new HashMap<>();
         final HashMap<String, String> contextData = new HashMap<>();
 
@@ -381,13 +500,13 @@ class AnalyticsExtension extends Extension implements EventsHandler {
 
         // It takes the provided data map and removes key-value pairs where the key is null or is prefixed with "&&"
         // The prefixed ones will be moved in the vars map
-        if(!analyticsData.isEmpty()) {
+        if (!analyticsData.isEmpty()) {
             for (Map.Entry<String, String> entry : analyticsData.entrySet()) {
                 String key = entry.getKey();
-                if(key.startsWith(AnalyticsConstants.VAR_ESCAPE_PREFIX)){
+                if (key.startsWith(AnalyticsConstants.VAR_ESCAPE_PREFIX)){
                     final String strippedKey = key.substring(AnalyticsConstants.VAR_ESCAPE_PREFIX.length());
                     legacyAnalyticsData.put(strippedKey, entry.getValue());
-                } else if(!StringUtils.isNullOrEmpty(key)){
+                } else if (!StringUtils.isNullOrEmpty(key)){
                     contextData.put(key, entry.getValue());
                 }
             }
@@ -415,6 +534,23 @@ class AnalyticsExtension extends Extension implements EventsHandler {
                 EventSource.REQUEST_CONTENT).setEventData(eventData).build();
 
         MobileCore.dispatchEvent(event, null);
+    }
+
+    /**
+     * Initializes the variables {@link #analyticsId} and {@link #visitorId} using values stored in local storage.
+     */
+    private void initializeAIDAndVID() {
+        if (platformServices == null) {
+            Log.debug(LOG_TAG, "addAIDAndVIDToAnalyticsVars - Unable to initialize AID and VID. PlatformServices is null.");
+            return;
+        }
+        final LocalStorageService.DataStore dataStore = platformServices.getLocalStorageService().getDataStore(AnalyticsConstants.DATASTORE_NAME);
+        if (dataStore == null) {
+            Log.debug(LOG_TAG, "addAIDAndVIDToAnalyticsVars - Unable to initialize AID and VID. DataStore is null.");
+            return;
+        }
+        analyticsId = dataStore.getString(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID, null);
+        visitorId = dataStore.getString(AnalyticsConstants.DataStoreKeys.VISITOR_ID, null);
     }
 
     /**

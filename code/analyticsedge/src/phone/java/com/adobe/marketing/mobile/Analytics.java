@@ -52,7 +52,7 @@ public final class Analytics {
      *
      */
     public static void clearQueue() {
-        Log.debug(AnalyticsConstants.LOG_TAG, "clearQueue - is not currently supported with Edge");
+        Log.error(AnalyticsConstants.LOG_TAG, "clearQueue API will not be supported with Edge");
     }
 
     /**
@@ -64,7 +64,7 @@ public final class Analytics {
      *
      */
     public static void getQueueSize(final AdobeCallback<Long> callback) {
-        Log.debug(AnalyticsConstants.LOG_TAG, "getQueueSize - is not currently supported with Edge");
+        Log.error(AnalyticsConstants.LOG_TAG, "getQueueSize API will not be supported with Edge");
         if (callback == null) {
             return;
         }
@@ -88,7 +88,7 @@ public final class Analytics {
      *
      */
     public static void getTrackingIdentifier(final AdobeCallback<String> callback) {
-        Log.debug(AnalyticsConstants.LOG_TAG, "getTrackingIdentifier - is not currently supported with Edge");
+        Log.error(AnalyticsConstants.LOG_TAG, "getTrackingIdentifier API will not be supported with Edge");
         if (callback == null) {
             return;
         }
@@ -110,7 +110,7 @@ public final class Analytics {
      *  eventuality of an unexpected error or if the default timeout (5000ms) is met before the callback is returned with visitor identifier.
      */
     public static void getVisitorIdentifier(final AdobeCallback<String> callback) {
-        Log.debug(AnalyticsConstants.LOG_TAG, "getVisitorIdentifier - is not currently supported with Edge");
+        Log.error(AnalyticsConstants.LOG_TAG, "getVisitorIdentifier API will not be supported with Edge");
         if (callback == null) {
             return;
         }
@@ -129,7 +129,7 @@ public final class Analytics {
      * Forces analytics to send all queued hits regardless of current batch options.
      */
     public static void sendQueuedHits() {
-        Log.debug(AnalyticsConstants.LOG_TAG, "sendQueuedHits - is not currently supported with Edge");
+        Log.error(AnalyticsConstants.LOG_TAG, "sendQueuedHits API will not be supported with Edge");
     }
 
     /**
@@ -137,6 +137,6 @@ public final class Analytics {
      * @param visitorID {@code String} new value for visitor identifier
      */
     public static void setVisitorIdentifier(final String visitorID) {
-        Log.debug(AnalyticsConstants.LOG_TAG, "setVisitorIdentifier - is not currently supported with Edge");
+        Log.error(AnalyticsConstants.LOG_TAG, "setVisitorIdentifier API will not be supported with Edge");
     }
 }

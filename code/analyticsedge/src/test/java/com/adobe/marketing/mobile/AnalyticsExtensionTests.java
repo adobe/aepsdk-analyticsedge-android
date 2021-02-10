@@ -10,7 +10,6 @@
   governing permissions and limitations under the License.
 */
 
-// TODO: placeholder, needs to be cleaned
 package com.adobe.marketing.mobile;
 
 import android.content.Context;
@@ -25,6 +24,7 @@ import org.mockito.Mockito;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
+import org.powermock.reflect.Whitebox;
 import org.powermock.reflect.internal.WhiteboxImpl;
 
 import java.util.HashMap;
@@ -34,10 +34,12 @@ import java.util.concurrent.ExecutorService;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -47,6 +49,8 @@ import static org.mockito.Mockito.when;
 public class AnalyticsExtensionTests {
 
     private AnalyticsExtension analyticsExtension;
+    private AndroidPlatformServices platformServices;
+    private UIService uiService;
 
     // Mocks
     @Mock
@@ -55,6 +59,14 @@ public class AnalyticsExtensionTests {
     ExtensionUnexpectedError mockExtensionUnexpectedError;
     @Mock
     Context context;
+    @Mock
+    PlatformServices mockPlatformServices;
+    @Mock
+    SystemInfoService mockSystemInfoService;
+    @Mock
+    LocalStorageService localStorageService;
+    @Mock
+    LocalStorageService.DataStore dataStore;
 
     @Before
     public void setup() {
@@ -62,7 +74,20 @@ public class AnalyticsExtensionTests {
         PowerMockito.mockStatic(ExperienceEvent.class);
         PowerMockito.mockStatic(App.class);
         Mockito.when(App.getAppContext()).thenReturn(context);
-        analyticsExtension = new AnalyticsExtension(mockExtensionApi);
+        platformServices = new AndroidPlatformServices();
+        uiService = platformServices.getUIService();
+        this.mockSystemInfoServiceAppInfo();
+        Mockito.when(mockPlatformServices.getSystemInfoService()).thenReturn(mockSystemInfoService);
+        Mockito.when(mockPlatformServices.getUIService()).thenReturn(uiService);
+        Mockito.when(mockPlatformServices.getLocalStorageService()).thenReturn(localStorageService);
+        Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DATASTORE_NAME)).thenReturn(dataStore);
+        analyticsExtension = new AnalyticsExtension(mockExtensionApi, mockPlatformServices);
+    }
+
+    private void mockSystemInfoServiceAppInfo() {
+        Mockito.when(mockSystemInfoService.getApplicationName()).thenReturn("testAppName");
+        Mockito.when(mockSystemInfoService.getApplicationVersion()).thenReturn("1.0.0");
+        Mockito.when(mockSystemInfoService.getApplicationVersionCode()).thenReturn("12345");
     }
 
     private void setupPrivacyStatusInSharedState(final String privacyStatus) {
@@ -80,11 +105,13 @@ public class AnalyticsExtensionTests {
     // ========================================================================================
     @Test
     public void test_Constructor() {
-        // verify 2 listeners are registered
+        // verify 3 listeners are registered
         verify(mockExtensionApi, times(1)).registerListener(eq(EventType.CONFIGURATION),
                 eq(EventSource.RESPONSE_CONTENT), eq(ConfigurationResponseContentListener.class));
         verify(mockExtensionApi, times(1)).registerListener(eq(EventType.GENERIC_TRACK),
                 eq(EventSource.REQUEST_CONTENT), eq(GenericTrackRequestContentListener.class));
+        verify(mockExtensionApi, times(1)).registerListener(eq(EventType.RULES_ENGINE),
+                eq(EventSource.RESPONSE_CONTENT), eq(RulesEngineResponseContentListener.class));
     }
 
     // ========================================================================================
@@ -146,7 +173,102 @@ public class AnalyticsExtensionTests {
     // handleAnalyticsTrackEvent
     // ========================================================================================
     @Test
-    public void test_handleAnalyticsTrackEvent_Smoke() {
+    public void test_handleAnalyticsTrackActionEvent() {
+        //setup MobileCore mock method
+        PowerMockito.mockStatic(MobileCore.class);
+
+        // setup
+        HashMap<String, String> contextData = new HashMap<>();
+        contextData.put("key1", "value1");
+        contextData.put("key2", "value2");
+        EventData eventData = new EventData();
+        eventData.putString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, "action");
+        eventData.putStringMap(AnalyticsConstants.EventDataKeys.CONTEXT_DATA, contextData);
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setData(eventData).build();
+        setupPrivacyStatusInSharedState("optedin");
+        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
+
+        // test
+        analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
+
+        // verify
+        ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
+        PowerMockito.verifyStatic(MobileCore.class, times(1));
+        MobileCore.dispatchEvent(argument.capture(), (ExtensionErrorCallback<ExtensionError>) eq(null));
+        Assert.assertTrue(argument.getValue() instanceof Event);
+        Event event = argument.getValue();
+        Assert.assertTrue(event.getName().equalsIgnoreCase(AnalyticsConstants.ANALYTICS_XDM_EVENTNAME));
+        Assert.assertTrue(event.getType().equalsIgnoreCase(AnalyticsConstants.Edge.EVENT_TYPE));
+        Assert.assertTrue(event.getSource().equalsIgnoreCase(EventSource.REQUEST_CONTENT.getName()));
+
+        Map<String, Object> capturedEventData = event.getEventData();
+        Map<String, String> xdm = (Map<String, String>) capturedEventData.get(AnalyticsConstants.XDMDataKeys.XDM);
+
+        Map<String, Object> edgeEventData = (Map<String, Object>) capturedEventData.get(AnalyticsConstants.XDMDataKeys.DATA);
+        Map<String, Object> edgeLegacyData = (Map<String, Object>) edgeEventData.get(AnalyticsConstants.XDMDataKeys.LEGACY);
+        HashMap edgeEventAnalyticsData = (HashMap)edgeLegacyData.get(AnalyticsConstants.XDMDataKeys.ANALYTICS);
+        HashMap edgeEventAnalyticsContextData = (HashMap)edgeEventAnalyticsData.get(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA);
+        assertEquals("legacy.analytics", xdm.get(AnalyticsConstants.XDMDataKeys.EVENTTYPE));
+        assertEquals("UTF-8", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.CHARSET));
+        assertEquals(AnalyticsConstants.TIMESTAMP_TIMEZONE_OFFSET, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.FORMATTED_TIMESTAMP));
+        assertEquals("lnk_o", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.IGNORE_PAGE_NAME));
+        assertEquals("AMACTION:action", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.ACTION_NAME));
+        assertEquals("foreground", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.CUSTOMER_PERSPECTIVE));
+        assertEquals(timestamp, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.STRING_TIMESTAMP));
+        assertEquals("value1", edgeEventAnalyticsContextData.get("key1"));
+        assertEquals("value2", edgeEventAnalyticsContextData.get("key2"));
+        assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.ContextDataKeys.ACTION));
+    }
+
+    @Test
+    public void test_handleAnalyticsTrackStateEvent() {
+        //setup MobileCore mock method
+        PowerMockito.mockStatic(MobileCore.class);
+
+        // setup
+        HashMap<String, String> contextData = new HashMap<>();
+        contextData.put("key1", "value1");
+        contextData.put("key2", "value2");
+        EventData eventData = new EventData();
+        eventData.putString(AnalyticsConstants.EventDataKeys.TRACK_STATE, "state");
+        eventData.putStringMap(AnalyticsConstants.EventDataKeys.CONTEXT_DATA, contextData);
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setData(eventData).build();
+        setupPrivacyStatusInSharedState("optedin");
+        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
+
+        // test
+        analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
+
+        // verify
+        ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
+        PowerMockito.verifyStatic(MobileCore.class, times(1));
+        MobileCore.dispatchEvent(argument.capture(), (ExtensionErrorCallback<ExtensionError>) eq(null));
+        Assert.assertTrue(argument.getValue() instanceof Event);
+        Event event = argument.getValue();
+        Assert.assertTrue(event.getName().equalsIgnoreCase(AnalyticsConstants.ANALYTICS_XDM_EVENTNAME));
+        Assert.assertTrue(event.getType().equalsIgnoreCase(AnalyticsConstants.Edge.EVENT_TYPE));
+        Assert.assertTrue(event.getSource().equalsIgnoreCase(EventSource.REQUEST_CONTENT.getName()));
+
+        Map<String, Object> capturedEventData = event.getEventData();
+        Map<String, String> xdm = (Map<String, String>) capturedEventData.get(AnalyticsConstants.XDMDataKeys.XDM);
+
+        Map<String, Object> edgeEventData = (Map<String, Object>) capturedEventData.get(AnalyticsConstants.XDMDataKeys.DATA);
+        Map<String, Object> edgeLegacyData = (Map<String, Object>) edgeEventData.get(AnalyticsConstants.XDMDataKeys.LEGACY);
+        HashMap edgeEventAnalyticsData = (HashMap)edgeLegacyData.get(AnalyticsConstants.XDMDataKeys.ANALYTICS);
+        HashMap edgeEventAnalyticsContextData = (HashMap)edgeEventAnalyticsData.get(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA);
+        assertEquals("legacy.analytics", xdm.get(AnalyticsConstants.XDMDataKeys.EVENTTYPE));
+        assertEquals("state", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.PAGE_NAME));
+        assertEquals("UTF-8", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.CHARSET));
+        assertEquals(AnalyticsConstants.TIMESTAMP_TIMEZONE_OFFSET, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.FORMATTED_TIMESTAMP));
+        assertEquals("foreground", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.CUSTOMER_PERSPECTIVE));
+        assertEquals(timestamp, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.STRING_TIMESTAMP));
+        assertEquals("value1", edgeEventAnalyticsContextData.get("key1"));
+        assertEquals("value2", edgeEventAnalyticsContextData.get("key2"));
+        assertNull(edgeEventAnalyticsContextData.get(AnalyticsConstants.ContextDataKeys.ACTION));
+    }
+
+    @Test
+    public void test_handleAnalyticsTrackInternalEvent() {
         //setup MobileCore mock method
         PowerMockito.mockStatic(MobileCore.class);
 
@@ -189,10 +311,53 @@ public class AnalyticsExtensionTests {
         assertEquals("ADBINTERNAL:action", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.ACTION_NAME));
         assertEquals("foreground", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.CUSTOMER_PERSPECTIVE));
         assertEquals(timestamp, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.STRING_TIMESTAMP));
-        assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.TRACK_ACTION));
-        assertEquals("true", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL));
-        assertEquals("{key1=value1, key2=value2}", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.CONTEXT_DATA));
-        assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.ContextDataKeys.INTERNAL_ACTION_KEY));
+        assertEquals("value1", edgeEventAnalyticsContextData.get("key1"));
+        assertEquals("value2", edgeEventAnalyticsContextData.get("key2"));
+        assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.ContextDataKeys.INTERNAL_ACTION));
+    }
+
+    @Test
+    public void test_handleAnalyticsTrackActionEvent_WithEmptyContextData() {
+        //setup MobileCore mock method
+        PowerMockito.mockStatic(MobileCore.class);
+
+        // setup
+        HashMap<String, String> contextData = new HashMap<>();
+        EventData eventData = new EventData();
+        eventData.putString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, "action");
+        eventData.putStringMap(AnalyticsConstants.EventDataKeys.CONTEXT_DATA, contextData);
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setData(eventData).build();
+        setupPrivacyStatusInSharedState("optedin");
+        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
+
+        // test
+        analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
+
+        // verify
+        ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
+        PowerMockito.verifyStatic(MobileCore.class, times(1));
+        MobileCore.dispatchEvent(argument.capture(), (ExtensionErrorCallback<ExtensionError>) eq(null));
+        Assert.assertTrue(argument.getValue() instanceof Event);
+        Event event = argument.getValue();
+        Assert.assertTrue(event.getName().equalsIgnoreCase(AnalyticsConstants.ANALYTICS_XDM_EVENTNAME));
+        Assert.assertTrue(event.getType().equalsIgnoreCase(AnalyticsConstants.Edge.EVENT_TYPE));
+        Assert.assertTrue(event.getSource().equalsIgnoreCase(EventSource.REQUEST_CONTENT.getName()));
+
+        Map<String, Object> capturedEventData = event.getEventData();
+        Map<String, String> xdm = (Map<String, String>) capturedEventData.get(AnalyticsConstants.XDMDataKeys.XDM);
+
+        Map<String, Object> edgeEventData = (Map<String, Object>) capturedEventData.get(AnalyticsConstants.XDMDataKeys.DATA);
+        Map<String, Object> edgeLegacyData = (Map<String, Object>) edgeEventData.get(AnalyticsConstants.XDMDataKeys.LEGACY);
+        HashMap edgeEventAnalyticsData = (HashMap)edgeLegacyData.get(AnalyticsConstants.XDMDataKeys.ANALYTICS);
+        HashMap edgeEventAnalyticsContextData = (HashMap)edgeEventAnalyticsData.get(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA);
+        assertEquals("legacy.analytics", xdm.get(AnalyticsConstants.XDMDataKeys.EVENTTYPE));
+        assertEquals("UTF-8", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.CHARSET));
+        assertEquals(AnalyticsConstants.TIMESTAMP_TIMEZONE_OFFSET, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.FORMATTED_TIMESTAMP));
+        assertEquals("lnk_o", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.IGNORE_PAGE_NAME));
+        assertEquals("AMACTION:action", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.ACTION_NAME));
+        assertEquals("foreground", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.CUSTOMER_PERSPECTIVE));
+        assertEquals(timestamp, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.STRING_TIMESTAMP));
+        assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.ContextDataKeys.ACTION));
     }
 
     @Test
@@ -280,10 +445,274 @@ public class AnalyticsExtensionTests {
         assertEquals("ADBINTERNAL:action", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.ACTION_NAME));
         assertEquals("foreground", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.CUSTOMER_PERSPECTIVE));
         assertEquals(timestamp, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.STRING_TIMESTAMP));
-        assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.TRACK_ACTION));
-        assertEquals("true", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL));
-        assertEquals("{key1=value1, key2=value2}", edgeEventAnalyticsContextData.get(AnalyticsConstants.EventDataKeys.CONTEXT_DATA));
-        assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.ContextDataKeys.INTERNAL_ACTION_KEY));
+        assertEquals("value1", edgeEventAnalyticsContextData.get("key1"));
+        assertEquals("value2", edgeEventAnalyticsContextData.get("key2"));
+        assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.ContextDataKeys.INTERNAL_ACTION));
+    }
+
+    @Test
+    public void test_handleAnalyticsTrack_ContextDataStripped() {
+        //setup MobileCore mock method
+        PowerMockito.mockStatic(MobileCore.class);
+
+        // setup
+        HashMap<String, String> contextData = new HashMap<>();
+        contextData.put("&&product", "value");
+        EventData eventData = new EventData();
+        eventData.putString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, "action");
+        eventData.putStringMap(AnalyticsConstants.EventDataKeys.CONTEXT_DATA, contextData);
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setData(eventData).build();
+        setupPrivacyStatusInSharedState("optedin");
+        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
+
+        // test
+        analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
+
+        // verify
+        ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
+        PowerMockito.verifyStatic(MobileCore.class, times(1));
+        MobileCore.dispatchEvent(argument.capture(), (ExtensionErrorCallback<ExtensionError>) eq(null));
+        Assert.assertTrue(argument.getValue() instanceof Event);
+        Event event = argument.getValue();
+        Assert.assertTrue(event.getName().equalsIgnoreCase(AnalyticsConstants.ANALYTICS_XDM_EVENTNAME));
+        Assert.assertTrue(event.getType().equalsIgnoreCase(AnalyticsConstants.Edge.EVENT_TYPE));
+        Assert.assertTrue(event.getSource().equalsIgnoreCase(EventSource.REQUEST_CONTENT.getName()));
+
+        Map<String, Object> capturedEventData = event.getEventData();
+        Map<String, String> xdm = (Map<String, String>) capturedEventData.get(AnalyticsConstants.XDMDataKeys.XDM);
+
+        Map<String, Object> edgeEventData = (Map<String, Object>) capturedEventData.get(AnalyticsConstants.XDMDataKeys.DATA);
+        Map<String, Object> edgeLegacyData = (Map<String, Object>) edgeEventData.get(AnalyticsConstants.XDMDataKeys.LEGACY);
+        HashMap edgeEventAnalyticsData = (HashMap)edgeLegacyData.get(AnalyticsConstants.XDMDataKeys.ANALYTICS);
+        HashMap edgeEventAnalyticsContextData = (HashMap)edgeEventAnalyticsData.get(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA);
+        assertEquals("legacy.analytics", xdm.get(AnalyticsConstants.XDMDataKeys.EVENTTYPE));
+        assertEquals("UTF-8", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.CHARSET));
+        assertEquals(AnalyticsConstants.TIMESTAMP_TIMEZONE_OFFSET, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.FORMATTED_TIMESTAMP));
+        assertEquals("lnk_o", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.IGNORE_PAGE_NAME));
+        assertEquals("AMACTION:action", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.ACTION_NAME));
+        assertEquals("foreground", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.CUSTOMER_PERSPECTIVE));
+        assertEquals("value", edgeEventAnalyticsData.get("product"));
+        assertEquals(timestamp, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.STRING_TIMESTAMP));
+        assertEquals("action", edgeEventAnalyticsContextData.get(AnalyticsConstants.ContextDataKeys.ACTION));
+    }
+
+    // ========================================================================================
+    // handleRulesEngineEvent
+    // ========================================================================================
+    @Test
+    public void test_handleRulesEngineTrackEvent_Smoke() {
+        //setup MobileCore mock method
+        PowerMockito.mockStatic(MobileCore.class);
+
+        // setup
+        HashMap<String, String> contextData = new HashMap<>();
+        contextData.put("key1", "value1");
+        contextData.put("key2", "value2");
+        HashMap<String, Object> detailMap = new HashMap<>();
+        detailMap.put("contextdata", contextData);
+        HashMap<String, Object> consequence = new HashMap<>();
+        consequence.put(AnalyticsConstants.EventDataKeys.ID, "id");
+        consequence.put(AnalyticsConstants.EventDataKeys.TYPE, "an");
+        consequence.put(AnalyticsConstants.EventDataKeys.DETAIL, detailMap);
+        EventData eventData = new EventData();
+        eventData.putObject(AnalyticsConstants.EventDataKeys.TRIGGERED_CONSEQUENCE, consequence);
+        Event sampleEvent = new Event.Builder("rule event", EventType.RULES_ENGINE, EventSource.RESPONSE_CONTENT).setData(eventData).build();
+        setupPrivacyStatusInSharedState("optedin");
+        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
+
+        // test
+        analyticsExtension.handleRulesEngineEvent(sampleEvent);
+
+        // verify
+        ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
+        PowerMockito.verifyStatic(MobileCore.class, times(1));
+        MobileCore.dispatchEvent(argument.capture(), (ExtensionErrorCallback<ExtensionError>) eq(null));
+        Assert.assertTrue(argument.getValue() instanceof Event);
+        Event event = argument.getValue();
+        Assert.assertTrue(event.getName().equalsIgnoreCase(AnalyticsConstants.ANALYTICS_XDM_EVENTNAME));
+        Assert.assertTrue(event.getType().equalsIgnoreCase(AnalyticsConstants.Edge.EVENT_TYPE));
+        Assert.assertTrue(event.getSource().equalsIgnoreCase(EventSource.REQUEST_CONTENT.getName()));
+
+        Map<String, Object> capturedEventData = event.getEventData();
+        Map<String, String> xdm = (Map<String, String>) capturedEventData.get(AnalyticsConstants.XDMDataKeys.XDM);
+
+        Map<String, Object> edgeEventData = (Map<String, Object>) capturedEventData.get(AnalyticsConstants.XDMDataKeys.DATA);
+        Map<String, Object> edgeLegacyData = (Map<String, Object>) edgeEventData.get(AnalyticsConstants.XDMDataKeys.LEGACY);
+        HashMap edgeEventAnalyticsData = (HashMap)edgeLegacyData.get(AnalyticsConstants.XDMDataKeys.ANALYTICS);
+        HashMap edgeEventAnalyticsContextData = (HashMap)edgeEventAnalyticsData.get(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA);
+        assertEquals("legacy.analytics", xdm.get(AnalyticsConstants.XDMDataKeys.EVENTTYPE));
+        assertEquals(1, edgeEventAnalyticsData.get("ndh"));
+        assertEquals("UTF-8", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.CHARSET));
+        assertEquals(AnalyticsConstants.TIMESTAMP_TIMEZONE_OFFSET, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.FORMATTED_TIMESTAMP));
+        assertEquals("testAppName1.0.012345", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.PAGE_NAME));
+        assertEquals("foreground", edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.CUSTOMER_PERSPECTIVE));
+        assertEquals(timestamp, edgeEventAnalyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.STRING_TIMESTAMP));
+        assertEquals("value1", edgeEventAnalyticsContextData.get("key1"));
+        assertEquals("value2", edgeEventAnalyticsContextData.get("key2"));
+    }
+
+    @Test
+    public void test_handleRulesEngineTrackEvent_MissingIdInConsequence() {
+        //setup MobileCore mock method
+        PowerMockito.mockStatic(MobileCore.class);
+
+        // setup
+        HashMap<String, String> contextData = new HashMap<>();
+        contextData.put("key1", "value1");
+        contextData.put("key2", "value2");
+        HashMap<String, Object> detailMap = new HashMap<>();
+        detailMap.put("contextdata", contextData);
+        HashMap<String, Object> consequence = new HashMap<>();
+        consequence.put(AnalyticsConstants.EventDataKeys.TYPE, "an");
+        consequence.put(AnalyticsConstants.EventDataKeys.DETAIL, detailMap);
+        EventData eventData = new EventData();
+        eventData.putObject(AnalyticsConstants.EventDataKeys.TRIGGERED_CONSEQUENCE, consequence);
+        Event sampleEvent = new Event.Builder("rule event", EventType.RULES_ENGINE, EventSource.RESPONSE_CONTENT).setData(eventData).build();
+        setupPrivacyStatusInSharedState("optedin");
+
+        // test
+        analyticsExtension.handleRulesEngineEvent(sampleEvent);
+
+        // verify
+        ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
+        PowerMockito.verifyStatic(MobileCore.class, times(0));
+        MobileCore.dispatchEvent(argument.capture(), (ExtensionErrorCallback<ExtensionError>) eq(null));
+    }
+
+    @Test
+    public void test_handleRulesEngineTrackEvent_MissingTypeInConsequence() {
+        //setup MobileCore mock method
+        PowerMockito.mockStatic(MobileCore.class);
+
+        // setup
+        HashMap<String, String> contextData = new HashMap<>();
+        contextData.put("key1", "value1");
+        contextData.put("key2", "value2");
+        HashMap<String, Object> detailMap = new HashMap<>();
+        detailMap.put("contextdata", contextData);
+        HashMap<String, Object> consequence = new HashMap<>();
+        consequence.put(AnalyticsConstants.EventDataKeys.ID, "id");
+        consequence.put(AnalyticsConstants.EventDataKeys.DETAIL, detailMap);
+        EventData eventData = new EventData();
+        eventData.putObject(AnalyticsConstants.EventDataKeys.TRIGGERED_CONSEQUENCE, consequence);
+        Event sampleEvent = new Event.Builder("rule event", EventType.RULES_ENGINE, EventSource.RESPONSE_CONTENT).setData(eventData).build();
+        setupPrivacyStatusInSharedState("optedin");
+
+        // test
+        analyticsExtension.handleRulesEngineEvent(sampleEvent);
+
+        // verify
+        ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
+        PowerMockito.verifyStatic(MobileCore.class, times(0));
+        MobileCore.dispatchEvent(argument.capture(), (ExtensionErrorCallback<ExtensionError>) eq(null));
+    }
+
+    @Test
+    public void test_handleRulesEngineTrackEvent_IncorrectTypeInConsequence() {
+        //setup MobileCore mock method
+        PowerMockito.mockStatic(MobileCore.class);
+
+        // setup
+        HashMap<String, String> contextData = new HashMap<>();
+        contextData.put("key1", "value1");
+        contextData.put("key2", "value2");
+        HashMap<String, Object> detailMap = new HashMap<>();
+        detailMap.put("contextdata", contextData);
+        HashMap<String, Object> consequence = new HashMap<>();
+        consequence.put(AnalyticsConstants.EventDataKeys.ID, "id");
+        consequence.put(AnalyticsConstants.EventDataKeys.TYPE, "invalid");
+        consequence.put(AnalyticsConstants.EventDataKeys.DETAIL, detailMap);
+        EventData eventData = new EventData();
+        eventData.putObject(AnalyticsConstants.EventDataKeys.TRIGGERED_CONSEQUENCE, consequence);
+        Event sampleEvent = new Event.Builder("rule event", EventType.RULES_ENGINE, EventSource.RESPONSE_CONTENT).setData(eventData).build();
+        setupPrivacyStatusInSharedState("optedin");
+
+        // test
+        analyticsExtension.handleRulesEngineEvent(sampleEvent);
+
+        // verify
+        ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
+        PowerMockito.verifyStatic(MobileCore.class, times(0));
+        MobileCore.dispatchEvent(argument.capture(), (ExtensionErrorCallback<ExtensionError>) eq(null));
+    }
+
+    @Test
+    public void test_handleRulesEngineTrackEvent_NoEventData() {
+        //setup MobileCore mock method
+        PowerMockito.mockStatic(MobileCore.class);
+
+        // setup
+        Event sampleEvent = new Event.Builder("rule event", EventType.RULES_ENGINE, EventSource.RESPONSE_CONTENT).build();
+        setupPrivacyStatusInSharedState("optedin");
+
+        // test
+        analyticsExtension.handleRulesEngineEvent(sampleEvent);
+
+        // verify
+        ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
+        PowerMockito.verifyStatic(MobileCore.class, times(0));
+        MobileCore.dispatchEvent(argument.capture(), (ExtensionErrorCallback<ExtensionError>) eq(null));
+    }
+
+    @Test
+    public void test_handleRulesEngineTrackEvent_NullEvent() {
+        //setup MobileCore mock method
+        PowerMockito.mockStatic(MobileCore.class);
+
+        // setup
+        Event sampleEvent = null;
+        setupPrivacyStatusInSharedState("optedin");
+
+        // test
+        analyticsExtension.handleRulesEngineEvent(sampleEvent);
+
+        // verify
+        ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
+        PowerMockito.verifyStatic(MobileCore.class, times(0));
+        MobileCore.dispatchEvent(argument.capture(), (ExtensionErrorCallback<ExtensionError>) eq(null));
+    }
+
+    @Test
+    public void test_handleRulesEngineTrackEvent_NullConsequence() {
+        //setup MobileCore mock method
+        PowerMockito.mockStatic(MobileCore.class);
+
+        // setup
+        EventData eventData = new EventData();
+        eventData.putObject(AnalyticsConstants.EventDataKeys.TRIGGERED_CONSEQUENCE, null);
+        Event sampleEvent = new Event.Builder("rule event", EventType.RULES_ENGINE, EventSource.RESPONSE_CONTENT).setData(eventData).build();
+        setupPrivacyStatusInSharedState("optedin");
+
+        // test
+        analyticsExtension.handleRulesEngineEvent(sampleEvent);
+
+        // verify
+        ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
+        PowerMockito.verifyStatic(MobileCore.class, times(0));
+        MobileCore.dispatchEvent(argument.capture(), (ExtensionErrorCallback<ExtensionError>) eq(null));
+    }
+
+    @Test
+    public void test_handleRulesEngineTrackEvent_MissingConsequenceDetail() {
+        //setup MobileCore mock method
+        PowerMockito.mockStatic(MobileCore.class);
+
+        // setup
+        HashMap<String, Object> consequence = new HashMap<>();
+        consequence.put(AnalyticsConstants.EventDataKeys.TYPE, "an");
+        consequence.put(AnalyticsConstants.EventDataKeys.ID, "id");
+        EventData eventData = new EventData();
+        eventData.putObject(AnalyticsConstants.EventDataKeys.TRIGGERED_CONSEQUENCE, consequence);
+        Event sampleEvent = new Event.Builder("rule event", EventType.RULES_ENGINE, EventSource.RESPONSE_CONTENT).setData(eventData).build();
+        setupPrivacyStatusInSharedState("optedin");
+
+        // test
+        analyticsExtension.handleRulesEngineEvent(sampleEvent);
+
+        // verify
+        ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
+        PowerMockito.verifyStatic(MobileCore.class, times(0));
+        MobileCore.dispatchEvent(argument.capture(), (ExtensionErrorCallback<ExtensionError>) eq(null));
     }
 
     // ========================================================================================
@@ -368,7 +797,7 @@ public class AnalyticsExtensionTests {
         Assert.assertTrue(event.getEventData().containsKey(AnalyticsConstants.XDMDataKeys.DATA));
         Map<String, Object> legacyData = (Map<String, Object>) ((Map<String, Object>)event.getEventData().get(AnalyticsConstants.XDMDataKeys.DATA)).get(AnalyticsConstants.XDMDataKeys.LEGACY);
         // Assertion for Assurance debug session
-        String assuranceDebugId = (String) ((Map<String, Object>)((Map<String, Object>)legacyData.get(AnalyticsConstants.XDMDataKeys.ANALYTICS)).get(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA)).get(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY);
+        String assuranceDebugId = (String) ((Map<String, Object>)((Map<String, Object>)legacyData.get(AnalyticsConstants.XDMDataKeys.ANALYTICS)).get(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA)).get(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER);
         assertEquals(assuranceDebugId, eventUuid);
     }
 
@@ -387,12 +816,10 @@ public class AnalyticsExtensionTests {
         eventData.putStringMap(AnalyticsConstants.EventDataKeys.CONTEXT_DATA, contextData);
         Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setData(eventData).build();
         setupPrivacyStatusInSharedState("optedin");
-        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
 
         // test
         analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
 
-        // verify
         // verify
         ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
         PowerMockito.verifyStatic(MobileCore.class, times(1));
@@ -405,6 +832,201 @@ public class AnalyticsExtensionTests {
         Map<String, Object> analyticsContextData = (Map<String, Object>)((Map<String, Object>)legacyData.get(AnalyticsConstants.XDMDataKeys.ANALYTICS)).get(AnalyticsConstants.XDMDataKeys.CONTEXT_DATA);
 
         // Assertion for Assurance debug session
-        assertFalse(analyticsContextData.containsKey(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER_KEY));
+        assertFalse(analyticsContextData.containsKey(AnalyticsConstants.ContextDataKeys.EVENT_IDENTIFIER));
+
+    }
+
+    // =================================================================================================
+    // Test AID/VID is attached to `Analytics vars` of analytics hit, if present in Local storage.
+    // =================================================================================================
+    @Test
+    public void testAidIsAddedToAnalyticsVars() {
+
+        //setup
+
+        final String aid = "aid";
+
+        //Mocking static methods of MobileCore
+        PowerMockito.mockStatic(MobileCore.class);
+
+        Mockito.when(mockPlatformServices.getLocalStorageService()).thenReturn(localStorageService);
+        Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DATASTORE_NAME)).thenReturn(dataStore);
+        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID, null)).thenReturn(aid);
+        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.VISITOR_ID, null)).thenReturn(null);
+        analyticsExtension = new AnalyticsExtension(mockExtensionApi, mockPlatformServices);
+
+        HashMap<String, String> contextData = new HashMap<>();
+        contextData.put("key1", "value1");
+        contextData.put("key2", "value2");
+        EventData eventData = new EventData();
+        eventData.putString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, "action");
+        eventData.putBoolean(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, true);
+        eventData.putStringMap(AnalyticsConstants.EventDataKeys.CONTEXT_DATA, contextData);
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setData(eventData).build();
+        setupPrivacyStatusInSharedState("optedin");
+
+        // test
+        analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
+
+        // verify
+        ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
+        PowerMockito.verifyStatic(MobileCore.class, times(1));
+        MobileCore.dispatchEvent(argument.capture(), (ExtensionErrorCallback<ExtensionError>) eq(null));
+        Assert.assertTrue(argument.getValue() instanceof Event);
+        Event event = argument.getValue();
+
+        Map<String, Object> eventDataMap = event.getEventData();
+        Map<String, Object> analyticsData = (Map<String, Object>) ((Map<String, Object>)((Map<String, Object>)eventDataMap.get(AnalyticsConstants.XDMDataKeys.DATA)).get(AnalyticsConstants.XDMDataKeys.LEGACY)).get(AnalyticsConstants.XDMDataKeys.ANALYTICS);
+
+        String actualAid = (String) analyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.ANALYTICS_ID);
+
+        Assert.assertEquals(aid, actualAid);
+
+    }
+
+    @Test
+    public void testAidIsNotAddedToAnalyticsVars() {
+
+        //setup
+
+        //Mocking static methods of MobileCore
+        PowerMockito.mockStatic(MobileCore.class);
+
+        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID, null)).thenReturn(null);
+        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.VISITOR_ID, null)).thenReturn(null);
+
+        HashMap<String, String> contextData = new HashMap<>();
+        contextData.put("key1", "value1");
+        contextData.put("key2", "value2");
+        EventData eventData = new EventData();
+        eventData.putString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, "action");
+        eventData.putBoolean(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, true);
+        eventData.putStringMap(AnalyticsConstants.EventDataKeys.CONTEXT_DATA, contextData);
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setData(eventData).build();
+        setupPrivacyStatusInSharedState("optedin");
+        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
+
+        // test
+        analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
+
+        // verify
+        ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
+        PowerMockito.verifyStatic(MobileCore.class, times(1));
+        MobileCore.dispatchEvent(argument.capture(), (ExtensionErrorCallback<ExtensionError>) eq(null));
+        Assert.assertTrue(argument.getValue() instanceof Event);
+        Event event = argument.getValue();
+
+        Map<String, Object> eventDataMap = event.getEventData();
+        Map<String, Object> analyticsData = (Map<String, Object>) ((Map<String, Object>)((Map<String, Object>)eventDataMap.get(AnalyticsConstants.XDMDataKeys.DATA)).get(AnalyticsConstants.XDMDataKeys.LEGACY)).get(AnalyticsConstants.XDMDataKeys.ANALYTICS);
+
+        String actualAid = (String) analyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.ANALYTICS_ID);
+
+        Assert.assertNull(actualAid);
+
+    }
+
+    @Test
+    public void testVidIsAddedToAnalyticsVars() {
+
+        //setup
+
+        final String vid = "vid";
+
+        //Mocking static methods of MobileCore
+        PowerMockito.mockStatic(MobileCore.class);
+
+        Mockito.when(mockPlatformServices.getLocalStorageService()).thenReturn(localStorageService);
+        Mockito.when(localStorageService.getDataStore(AnalyticsConstants.DATASTORE_NAME)).thenReturn(dataStore);
+        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID, null)).thenReturn(null);
+        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.VISITOR_ID, null)).thenReturn(vid);
+        analyticsExtension = new AnalyticsExtension(mockExtensionApi, mockPlatformServices);
+
+        HashMap<String, String> contextData = new HashMap<>();
+        contextData.put("key1", "value1");
+        contextData.put("key2", "value2");
+        EventData eventData = new EventData();
+        eventData.putString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, "action");
+        eventData.putBoolean(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, true);
+        eventData.putStringMap(AnalyticsConstants.EventDataKeys.CONTEXT_DATA, contextData);
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setData(eventData).build();
+        setupPrivacyStatusInSharedState("optedin");
+        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
+
+        // test
+        analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
+
+        // verify
+        ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
+        PowerMockito.verifyStatic(MobileCore.class, times(1));
+        MobileCore.dispatchEvent(argument.capture(), (ExtensionErrorCallback<ExtensionError>) eq(null));
+        Assert.assertTrue(argument.getValue() instanceof Event);
+        Event event = argument.getValue();
+
+        Map<String, Object> eventDataMap = event.getEventData();
+        Map<String, Object> analyticsData = (Map<String, Object>) ((Map<String, Object>)((Map<String, Object>)eventDataMap.get(AnalyticsConstants.XDMDataKeys.DATA)).get(AnalyticsConstants.XDMDataKeys.LEGACY)).get(AnalyticsConstants.XDMDataKeys.ANALYTICS);
+
+        String actualVid = (String) analyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.VISITOR_ID);
+
+        Assert.assertEquals(vid, actualVid);
+
+    }
+
+    @Test
+    public void testVidIsNotAddedToAnalyticsVars() {
+
+        //setup
+
+        //Mocking static methods of MobileCore
+        PowerMockito.mockStatic(MobileCore.class);
+
+        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID, null)).thenReturn(null);
+        Mockito.when(dataStore.getString(AnalyticsConstants.DataStoreKeys.VISITOR_ID, null)).thenReturn(null);
+
+        HashMap<String, String> contextData = new HashMap<>();
+        contextData.put("key1", "value1");
+        contextData.put("key2", "value2");
+        EventData eventData = new EventData();
+        eventData.putString(AnalyticsConstants.EventDataKeys.TRACK_ACTION, "action");
+        eventData.putBoolean(AnalyticsConstants.EventDataKeys.TRACK_INTERNAL, true);
+        eventData.putStringMap(AnalyticsConstants.EventDataKeys.CONTEXT_DATA, contextData);
+        Event sampleEvent = new Event.Builder("generic track", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT).setData(eventData).build();
+        setupPrivacyStatusInSharedState("optedin");
+        String timestamp = String.valueOf(sampleEvent.getTimestampInSeconds());
+
+        // test
+        analyticsExtension.handleAnalyticsTrackEvent(sampleEvent);
+
+        // verify
+        ArgumentCaptor<Event> argument = ArgumentCaptor.forClass(Event.class);
+        PowerMockito.verifyStatic(MobileCore.class, times(1));
+        MobileCore.dispatchEvent(argument.capture(), (ExtensionErrorCallback<ExtensionError>) eq(null));
+        Assert.assertTrue(argument.getValue() instanceof Event);
+        Event event = argument.getValue();
+
+        Map<String, Object> eventDataMap = event.getEventData();
+        Map<String, Object> analyticsData = (Map<String, Object>) ((Map<String, Object>)((Map<String, Object>)eventDataMap.get(AnalyticsConstants.XDMDataKeys.DATA)).get(AnalyticsConstants.XDMDataKeys.LEGACY)).get(AnalyticsConstants.XDMDataKeys.ANALYTICS);
+
+        String actualVid = (String) analyticsData.get(AnalyticsConstants.AnalyticsRequestKeys.VISITOR_ID);
+
+        Assert.assertNull(actualVid);
+
+    }
+
+    // =================================================================================================
+    // Test AID/VID is cleared from Local storage on opt out.
+    // =================================================================================================
+
+    @Test
+    public void testAIDAndVIDGetsClearedOnOptOut() {
+        //setup
+        setupPrivacyStatusInSharedState(MobilePrivacyStatus.OPT_OUT.getValue());
+
+        //Action
+        Event event = new Event.Builder("Configuration", EventType.CONFIGURATION, EventSource.RESPONSE_CONTENT).build();
+        analyticsExtension.handleConfigurationEvent(event);
+
+        //Assertion
+        Mockito.verify(dataStore, times(1)).remove(AnalyticsConstants.DataStoreKeys.ANALYTICS_ID);
+        Mockito.verify(dataStore, times(1)).remove(AnalyticsConstants.DataStoreKeys.VISITOR_ID);
     }
 }

@@ -20,8 +20,8 @@ final class AnalyticsConstants {
     static final String LOG_TAG = "AnalyticsEdge";
     static final String EXTENSION_NAME = "com.adobe.module.analyticsedge";
     static final String FRIENDLY_NAME = "AnalyticsEdge";
-    static final String EXTENSION_VERSION = "1.0.0-beta-5";
-    static final String DATASTORE_NAME = EXTENSION_NAME;
+    static final String EXTENSION_VERSION = "1.0.0-beta-6";
+    static final String DATASTORE_NAME = "AnalyticsDataStorage"; //The data store name is same for Analytics direct and Analytics edge extensions.
 
     static final String APP_STATE_FOREGROUND = "foreground";
     static final String APP_STATE_BACKGROUND = "background";
@@ -83,12 +83,20 @@ final class AnalyticsConstants {
         static final String HIT_HOST = "hitHost";
         static final String HIT_URL = "hitUrl";
         static final String SESSION_ID = "sessionid";
+        static final String TRIGGERED_CONSEQUENCE = "triggeredconsequence";
+        static final String ID = "id";
+        static final String DETAIL = "detail";
+        static final String TYPE = "type";
+    }
+
+    static final class ConsequenceTypes {
+        static final String TRACK = "an";
     }
 
     static final class ContextDataKeys {
-        static final String ACTION_KEY = "a.action";
-        static final String INTERNAL_ACTION_KEY = "a.internalaction";
-        static final String EVENT_IDENTIFIER_KEY = "a.DebugEventIdentifier";
+        static final String ACTION = "a.action";
+        static final String INTERNAL_ACTION = "a.internalaction";
+        static final String EVENT_IDENTIFIER = "a.DebugEventIdentifier";
     }
 
     static final class XDMDataKeys {
@@ -98,6 +106,11 @@ final class AnalyticsConstants {
         static final String CONTEXT_DATA = "c";
         static final String DATA = "data";
         static final String XDM = "xdm";
+    }
+
+    static final class DataStoreKeys {
+        static final String ANALYTICS_ID = "ADOBEMOBILE_STOREDDEFAULTS_AID";
+        static final String VISITOR_ID = "ADOBEMOBILE_STOREDDEFAULTS_VISITOR_IDENTIFIER";
     }
 
     static final String ANALYTICS_XDM_EVENTTYPE = "legacy.analytics";
